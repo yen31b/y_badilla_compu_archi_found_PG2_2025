@@ -1,15 +1,15 @@
 # --- processor.py ---
 from instruction import Instruction
 from register_file import RegisterFile
-from memory import Memory
-from alu import ALU  # nueva ALU orientada a objetos
+from RAM import RAM
+from ALU import ALU  # nueva ALU orientada a objetos
 
 class Processor:
     def __init__(self, instructions):
         self.pc = 0
         self.instructions = [Instruction(line) for line in instructions]
         self.regs = RegisterFile()
-        self.mem = Memory(1024)
+        self.mem = RAM(1024)
         self.alu = ALU()  # instancia de la nueva ALU
         self.pipeline = [None] * 5  # IF, ID, EX, MEM, WB
         self.modules = {"ALU": False, "Memoria": False, "Registros": False}

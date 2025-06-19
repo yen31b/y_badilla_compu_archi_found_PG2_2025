@@ -1,4 +1,4 @@
-from RAM import RAM
+from .RAM import RAM
 
 def test_RAM():
     ram = RAM(64)  # 64 bytes = 16 palabras (32 bits cada una)
