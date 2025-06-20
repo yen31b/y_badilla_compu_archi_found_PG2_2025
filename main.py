@@ -2,7 +2,6 @@ from processor import Processor
 import tkinter as tk             
 import time                      
 
-
 program = [
     'addi x1, x0, 5',
     'addi x2, x0, 5',
@@ -74,47 +73,41 @@ reset_btn.pack(side=tk.LEFT, padx=5)
 # --- Canvas---
 
 coords = {
-    "PC": (50, 100, 130, 160),                    
-    "Instr. memory": (170, 80, 320, 150),         
-    "Compressed decode": (170, 160, 320, 190),    
-    "IF/ID": (340, 60, 370, 190),                 
-    "Decode": (420, 90, 500, 150),               
-    "Registers": (560, 80, 720, 150),          
-    "Imm": (560, 160, 650, 200),                  
-    "ID/EX": (740, 60, 770, 190),                 
-    "ALU": (815, 80, 940, 150),                  
-    "Branch": (815, 160, 940, 200),               
-    "EX/MEM": (960, 60, 990, 190),              
-    "Data memory": (1050, 80, 1170, 150),        
-    "MEM/WB": (1180, 60, 1210, 190)              
+    "PC": (150, 210, 220, 240),                    
+    "Instr. memory": (270, 160, 420, 240),         
+    "Compressed decode": (270, 270, 420, 300),    
+    "IF/ID": (440, 108, 470, 450),      
+    "Decode": (530, 210, 590, 300),               
+    "Registers": (660, 160, 800, 260),          
+    "Imm": (687, 270, 720, 330),                  
+    "ID/EX": (820, 108, 850, 450),      
+    "ALU": (935, 160, 1035, 260),                  
+    "Branch": (915, 292, 1000, 310),               
+    "EX/MEM": (1060, 108, 1090, 450),    
+    "Data memory": (1110, 130, 1230, 200),  
+    "MEM/WB": (1280, 108, 1310, 450)   
 }
 
-stage_dividers = [340, 740, 960, 1180]  # Coordenadas de las líneas divisorias de etapas
+stage_dividers = [440, 820, 1060, 1280]  # Antes: [340, 740, 960, 1180]
 
 # --- Canvas principal ---
-canvas_w, canvas_h = 1350, 350  # Tamaño del canvas
+canvas_w, canvas_h = 1550, 500  # Nuevo tamaño del canvas
 canvas = tk.Canvas(main_frame, width=canvas_w, height=canvas_h, bg="white")  
 canvas.grid(row=0, column=0, rowspan=4, padx=5, pady=5)
 
 canvas.config(width=canvas_w, height=canvas_h)
 
-
 canvas.create_text(canvas_w//2, 10, text="5-Stage RISC-V Processor ", font=("Arial", 12, "bold"))  # Título
 
 # --- Divisiones de etapas ---
 for x in stage_dividers:
-    canvas.create_line(x, 40, x, 220, width=7, fill="#999")  
-
-# --- Etiquetas de etapa ---
-canvas.create_text(200, 40, text="IF", font=("Arial", 11, "bold"))      
-canvas.create_text(450, 40, text="ID", font=("Arial", 11, "bold"))      
-canvas.create_text(800, 40, text="EX", font=("Arial", 11, "bold"))      
-canvas.create_text(1080, 40, text="MEM", font=("Arial", 11, "bold"))    
-canvas.create_text(1200, 40, text="WB", font=("Arial", 11, "bold"))     
+    canvas.create_line(x, 90, x, 310, width=7, fill="#999")  
 
 # --- Bloques ---
 block_ids = {}
 for name, (x1, y1, x2, y2) in coords.items():
+    if name == "ALU":
+        continue  # No dibujes aquí, la dibujamos abajo con forma especial
     fill = "#FFF" if "/" in name else "#E6E6FA"
     block_ids[name] = canvas.create_rectangle(x1, y1, x2, y2, fill=fill, width=2)
     if name in ["IF/ID", "ID/EX", "EX/MEM", "MEM/WB"]:
@@ -122,11 +115,6 @@ for name, (x1, y1, x2, y2) in coords.items():
         canvas.create_text((x1+x2)//2, (y1+y2)//2, text=text, font=("Arial", 8, "bold"))
     else:
         canvas.create_text((x1+x2)//2, (y1+y2)//2, text=name, font=("Arial", 11, "bold"))
-
-# --- Sumador ---
-
-canvas.create_rectangle(135, 70, 165, 90, fill="#D3D3D3", outline="black")
-canvas.create_text(150, 80, text="+", font=("Arial", 10))
 
 # --- Multiplexores--
 def draw_mux(canvas, x, y, width=28, height=22):
@@ -138,25 +126,121 @@ def draw_mux(canvas, x, y, width=28, height=22):
     ]
     return canvas.create_polygon(points, fill="white", outline="black", width=2)
 
-# --- MUX antes del PC---
-mux0_id = draw_mux(canvas, 20, 65, width=20, height=30)
-canvas.create_text(30, 55, text="MUX", font=("Arial", 6))
-canvas.create_text(18, 70, text="2", font=("Arial", 6))
-canvas.create_text(18, 90, text="4", font=("Arial", 6))
+# --- ALU con forma personalizada ---
+def draw_alu(canvas, x, y, width=100, height=70):
+    """
+    Dibuja una ALU con muesca en 'V' en el lado izquierdo
+    y etiqueta cada vértice con una letra.
+    """
+    notch_depth = width * 0.13      # Profundidad horizontal de la muesca
+    notch_height = height * 0.28    # Altura desde los bordes hasta la muesca
 
-# --- MUX despues del PC ---
-mux1_id = draw_mux(canvas, 135, 110)  
-canvas.create_text(135 + 14, 110 - 8, text="MUX", font=("Arial", 6))
+    points = [
+        (x + notch_depth -10, y ),                  
+        (x + width - 1, y +10),                      
+        (x + width - 1, y - 10 + height),            
+        (x + notch_depth -10, y + height),          
+        (x, y + height - notch_height),          
+        (x + notch_depth, y + height // 2),    
+        (x, y + notch_height)                    
+    ]
 
-# --- MUX antes de la ALU ---
-mux2_id = draw_mux(canvas, 778, 110)
-canvas.create_text(778 + 14, 110 - 8, text="MUX", font=("Arial", 6))
+    # Dibuja el polígono
+    flat_points = [coord for pt in points for coord in pt]
+    alu_id = canvas.create_polygon(flat_points, fill="#E6E6FA", outline="black", width=2)
+    return alu_id
+
+# --- Sumador ---
+muxS_id = draw_mux(canvas, 235, 110, width=20, height=30)  # +100 en X
+canvas.create_text(250, 98, text="Sumador", font=("Arial", 6))
+
+# --- MUX antes arriba del PC---
+mux0_id = draw_mux(canvas, 171, 104, width=20, height=30)
+canvas.create_text(167, 104, text="4", font=("Arial", 6))
+canvas.create_line(158, 107, 168, 107)
+canvas.create_text(167, 123, text="2", font=("Arial", 6))
+canvas.create_line(158, 127, 168, 127)
+canvas.create_line(190, 120, 236, 120)  #M0 y MS
+
+# --- MUX antes del PC ---
+mux1_id = draw_mux(canvas, 115, 210, width=20, height=30)  
+canvas.create_line(90, 222, 116, 222)  #M1  y S
+canvas.create_line(90, 80, 90, 222)  #M1  y S
+canvas.create_line(90, 80, 317, 80)  #M1  y S
+canvas.create_line(317, 80, 317, 123)  #M1  y S
+canvas.create_line(135, 224, 150, 224)#M1 y PC
+
+# --- MUX arriba antes de la ALU ---
+mux_extra_id = draw_mux(canvas, 888, 163, width=20, height=30)
+canvas.create_line(908, 177, 950, 177) #M a ALU
+
+# --- MUX abajo antes de la ALU ---
+mux2_id = draw_mux(canvas, 888, 227, width=20, height=30)
+canvas.create_line(908, 243, 950, 243) #M a ALU
+
+# --- MUX después de MEM/WB ---
+mux_final_id = draw_mux(canvas, 1380, 160, width=20, height=50)
+
+#--- Líneas ---
+canvas.create_line(255, 123, 440, 123)  #sumador a 1 bloque separador
+canvas.create_line(469, 123, 821, 123)  #Bloque 1 a bloque 2
+canvas.create_line(851, 123, 1060, 123)  #Bloque 2 a bloque 3
+canvas.create_line(1090, 123, 1278, 123)  #Bloque 3 a bloque 4
+canvas.create_line(1309, 123, 1338, 123)  #Bloque 5 a mux final
+canvas.create_line(1338, 123, 1338, 165)  
+canvas.create_line(1338, 165, 1380, 165) 
+canvas.create_line(220, 224, 270, 224)#PC y IM
+canvas.create_line(240, 140, 240, 224)#PC y MS
+canvas.create_line(240, 150, 440, 150) # PC + Y bloque 1
+canvas.create_line(470, 150, 821, 150) # Bloque 1 a bloque 2
+canvas.create_line(871, 150, 880, 150) # BLoque 2 y mux arriba alu
+canvas.create_line(880, 150, 880, 167)
+canvas.create_line(880, 167, 888, 167) 
+canvas.create_line(871, 182, 888, 182)
+canvas.create_line(871, 232, 888, 232)
+canvas.create_line(821, 182, 841, 182) #Register y ID/EX
+canvas.create_line(821, 232, 841, 232) 
+canvas.create_line(345, 240, 345, 270)#Instr M y CompressedD
+canvas.create_line(720, 280, 820, 280) #IMM Y ID/EX
+canvas.create_line(590, 280, 687, 280) #IMM Y Decode 
+canvas.create_line(420, 290, 440, 290)#CompressedD y IF
+canvas.create_line(469, 290, 508, 290)#IF y decode
+canvas.create_line(508, 220, 508, 290)# decode y Imm
+canvas.create_line(508, 220, 531, 220)
+canvas.create_line(590, 290, 595, 290) #Decode y id/ex
+canvas.create_line(595, 290, 595, 355) 
+canvas.create_line(595, 355, 820, 355) 
+canvas.create_line(508, 320, 688, 320) #IMM nodo decode
+canvas.create_line(508, 280, 508, 320)
+canvas.create_line(640, 190, 660, 190) #Register con salida del ultimo mux
+canvas.create_line(640, 70, 640, 190)
+canvas.create_line(640, 70, 1425, 70)
+canvas.create_line(1425, 70, 1425, 183)
+canvas.create_line(1400, 183, 1425, 183)
+canvas.create_line(620, 200, 660, 200) #Register hasta MEM/WB
+canvas.create_line(620, 50, 620, 200)
+canvas.create_line(620, 50, 1445, 50)
+canvas.create_line(1445, 50, 1445, 387)
+canvas.create_line(1310, 387, 1445, 387)
+canvas.create_line(1090, 387, 1278, 387) #bloque 3 y boque 4 abajo
+canvas.create_line(890, 387, 1060, 387) #bloque 2 y boque 3 abajo
+canvas.create_line(890, 357, 890, 387) 
+canvas.create_line(850, 357, 890, 357) 
 
 
-pc_x2 = coords["PC"][2]
-pc_yc = (coords["PC"][1] + coords["PC"][3]) // 2
-alu_x1 = coords["ALU"][0]
-alu_yc = (coords["ALU"][1] + coords["ALU"][3]) // 2
+canvas.create_line(590, 215, 660, 215) #Decode y registers  R
+canvas.create_line(590, 230, 660, 230) 
+
+# --- Dibuja la ALU personalizada y guárdala en block_ids ---
+alu_x1, alu_y1, alu_x2, alu_y2 = coords["ALU"]
+alu_width = alu_x2 - alu_x1
+alu_height = alu_y2 - alu_y1
+alu_id = draw_alu(canvas, alu_x1, alu_y1, width=alu_width, height=alu_height)
+block_ids["ALU"] = alu_id  # <-- Así la ALU se puede resaltar igual que los demás bloques
+canvas.create_text((alu_x1 + alu_x2)//2, (alu_y1 + alu_y2)//2, text="ALU", font=("Arial", 11, "bold"))
+canvas.create_text(alu_x1 + 18, alu_y1 + 12, text="Op 1", font=("Arial", 7))
+canvas.create_text(alu_x1 + 18, alu_y2 - 12, text="Op 2", font=("Arial", 7))
+canvas.create_text(alu_x2 - 15, (alu_y1 + alu_y2)//2, text="Res", font=("Arial", 7))
 
 # --- Refresh GUI ---
 def refresh_gui():
@@ -201,6 +285,29 @@ def refresh_gui():
                 stage = stage_names[idx]
                 if stage in block_ids:
                     canvas.itemconfig(block_ids[stage], fill="#FFD700")
+
+    # --- Mostrar la instrucción sobre cada bloque de etapa ---
+    # Limpia textos anteriores (opcional, si agregas textos dinámicos)
+    if hasattr(refresh_gui, "stage_text_ids"):
+        for tid in refresh_gui.stage_text_ids:
+            canvas.delete(tid)
+    refresh_gui.stage_text_ids = []
+
+    for idx in range(4):
+        instr = cpu.pipeline[idx]
+        if instr is not None:
+            # Elige el centro del bloque funcional
+            block_name = stage_to_block[idx]
+            if block_name in coords:
+                x1, y1, x2, y2 = coords[block_name]
+                # Muestra la instrucción arriba del bloque
+                text_id = canvas.create_text(
+                    (x1 + x2) // 2, y1 - 15,
+                    text=instr,
+                    font=("Arial", 8, "italic"),
+                    fill="blue"
+                )
+                refresh_gui.stage_text_ids.append(text_id)
 
 # --- Controladores ---
 def update():
