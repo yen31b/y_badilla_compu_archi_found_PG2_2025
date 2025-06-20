@@ -1,7 +1,7 @@
-# --- main.py ---
-from processor import Processor
-import tkinter as tk
-import time
+from processor import Processor  
+import tkinter as tk             
+import time                      
+
 
 program = [
     'addi x1, x0, 5',
@@ -15,106 +15,194 @@ program = [
     'nop',
     'addi x6, x0, 88',
     'addi x7, x0, 77',
-    'sw x3, 0(x0)',         # guardar x3 en memoria
-    'lw x8, 0(x0)'          # cargar valor guardado en x3 en x8
-    'xor x10, x1, x2',     # x10 = x1 ^ x2
-    'and x11, x1, x2',     # x11 = x1 & x2
-    'or x12, x1, x2',      # x12 = x1 | x2
-    'slt x13, x2, x3',     # x13 = 1 si x2 < x3
-    'sltu x14, x2, x3',    # x14 = 1 si x2 < x3 (unsigned)
-    'sub x15, x3, x1'      # x15 = x3 - x1
+    'sw x3, 0(x0)',
+    'lw x8, 0(x0)',
+    'xor x10, x1, x2',
+    'and x11, x1, x2',
+    'or x12, x1, x2',
+    'slt x13, x2, x3',
+    'sltu x14, x2, x3',
+    'sub x15, x3, x1'
 ]
 
-cpu = Processor(program)
+cpu = Processor(program)  
 
-root = tk.Tk()
+root = tk.Tk() 
 root.title("Simulador RISCV - Pipeline")
 
-start_time = time.time()
-cycle = 0
-running = False
+start_time = time.time()  
+cycle = 0                # Contador de ciclos
+running = False          # Bandera para ejecución automática
 
-cycle_label = tk.Label(root, text="Ciclo: 0")
-cycle_label.pack()
+# --- Layout principal ---
+main_frame = tk.Frame(root)  # Frame principal para organizar widgets
+main_frame.pack()
 
-pc_label = tk.Label(root, text="PC: 0")
-pc_label.pack()
+# --- Paneles de texto a la derecha ---
+reg_text = tk.Text(main_frame, height=8, width=37)  # Muestra los registros
+reg_text.grid(row=0, column=1, padx=5, pady=2)
+mem_text = tk.Text(main_frame, height=8, width=37)  # Muestra la memoria
+mem_text.grid(row=1, column=1, padx=5, pady=2)
+log_text = tk.Text(main_frame, height=8, width=37)  # Muestra el log de accesos a memoria
+log_text.grid(row=2, column=1, padx=5, pady=2)
 
-time_label = tk.Label(root, text="Tiempo transcurrido: 0.00s")
-time_label.pack()
+# --- Labels de estado ---
+status_frame = tk.Frame(root)  
+status_frame.pack()
+cycle_label = tk.Label(status_frame, text="Ciclo: 0")  # Muestra el ciclo actual
+cycle_label.pack(side=tk.LEFT, padx=8)
+pc_label = tk.Label(status_frame, text="PC: 0")        # Muestra el valor del PC
+pc_label.pack(side=tk.LEFT, padx=8)
+time_label = tk.Label(status_frame, text="Tiempo transcurrido: 0.00s")  # Muestra el tiempo
+time_label.pack(side=tk.LEFT, padx=8)
 
-pipeline_labels = [tk.Label(root, text=f"{stage}: None") for stage in ['IF', 'ID', 'EX', 'MEM', 'WB']]
-for label in pipeline_labels:
-    label.pack()
+# --- Botones de control ---
+btn_frame = tk.Frame(root)  #
+btn_frame.pack(pady=10)
+step_btn = tk.Button(btn_frame, text="Siguiente ciclo", width=16)     
+start_btn = tk.Button(btn_frame, text="Inicio automático", width=16)   
+stop_btn = tk.Button(btn_frame, text="Detener automático", width=16)   
+run_all_btn = tk.Button(btn_frame, text="Ejecutar completo", width=16)
+reset_btn = tk.Button(btn_frame, text="Reiniciar", width=16)         
 
-reg_text = tk.Text(root, height=6, width=60)
-reg_text.pack()
+step_btn.pack(side=tk.LEFT, padx=5)
+start_btn.pack(side=tk.LEFT, padx=5)
+stop_btn.pack(side=tk.LEFT, padx=5)
+run_all_btn.pack(side=tk.LEFT, padx=5)
+reset_btn.pack(side=tk.LEFT, padx=5)
 
-mem_text = tk.Text(root, height=6, width=60)
-mem_text.pack()
+# --- Canvas---
 
-log_text = tk.Text(root, height=6, width=60)
-log_text.pack()
-
-module_labels = {
-    "ALU": tk.Label(root, text="ALU", width=25, bg="lightcoral", relief="solid"),
-    "Memoria": tk.Label(root, text="Memoria", width=25, bg="lightcoral", relief="solid"),
-    "Registros": tk.Label(root, text="Registros", width=25, bg="lightcoral", relief="solid")
+coords = {
+    "PC": (50, 100, 130, 160),                    
+    "Instr. memory": (170, 80, 320, 150),         
+    "Compressed decode": (170, 160, 320, 190),    
+    "IF/ID": (340, 60, 370, 190),                 
+    "Decode": (420, 90, 500, 150),               
+    "Registers": (560, 80, 720, 150),          
+    "Imm": (560, 160, 650, 200),                  
+    "ID/EX": (740, 60, 770, 190),                 
+    "ALU": (815, 80, 940, 150),                  
+    "Branch": (815, 160, 940, 200),               
+    "EX/MEM": (960, 60, 990, 190),              
+    "Data memory": (1050, 80, 1170, 150),        
+    "MEM/WB": (1180, 60, 1210, 190)              
 }
 
-for label in module_labels.values():
-    label.pack()
+stage_dividers = [340, 740, 960, 1180]  # Coordenadas de las líneas divisorias de etapas
 
-canvas = tk.Canvas(root, width=600, height=150)
+# --- Canvas principal ---
+canvas_w, canvas_h = 1350, 350  # Tamaño del canvas
+canvas = tk.Canvas(main_frame, width=canvas_w, height=canvas_h, bg="white")  
+canvas.grid(row=0, column=0, rowspan=4, padx=5, pady=5)
 
-canvas.pack()
+canvas.config(width=canvas_w, height=canvas_h)
 
-stage_blocks = {}
-stage_positions = [(50, 30), (150, 30), (250, 30), (350, 30), (450, 30)]
 
-for i, name in enumerate(['IF', 'ID', 'EX', 'MEM', 'WB']):
-    x, y = stage_positions[i]
-    rect_id = canvas.create_rectangle(x, y, x+80, y+60, fill="lightcoral")
-    text_id = canvas.create_text(x+40, y+30, text=name)
-    stage_blocks[name] = {"rect": rect_id, "canvas": canvas}
+canvas.create_text(canvas_w//2, 10, text="5-Stage RISC-V Processor ", font=("Arial", 12, "bold"))  # Título
 
+# --- Divisiones de etapas ---
+for x in stage_dividers:
+    canvas.create_line(x, 40, x, 220, width=7, fill="#999")  
+
+# --- Etiquetas de etapa ---
+canvas.create_text(200, 40, text="IF", font=("Arial", 11, "bold"))      
+canvas.create_text(450, 40, text="ID", font=("Arial", 11, "bold"))      
+canvas.create_text(800, 40, text="EX", font=("Arial", 11, "bold"))      
+canvas.create_text(1080, 40, text="MEM", font=("Arial", 11, "bold"))    
+canvas.create_text(1200, 40, text="WB", font=("Arial", 11, "bold"))     
+
+# --- Bloques ---
+block_ids = {}
+for name, (x1, y1, x2, y2) in coords.items():
+    fill = "#FFF" if "/" in name else "#E6E6FA"
+    block_ids[name] = canvas.create_rectangle(x1, y1, x2, y2, fill=fill, width=2)
+    if name in ["IF/ID", "ID/EX", "EX/MEM", "MEM/WB"]:
+        text = name.replace("/", "/\n")  
+        canvas.create_text((x1+x2)//2, (y1+y2)//2, text=text, font=("Arial", 8, "bold"))
+    else:
+        canvas.create_text((x1+x2)//2, (y1+y2)//2, text=name, font=("Arial", 11, "bold"))
+
+# --- Sumador ---
+
+canvas.create_rectangle(135, 70, 165, 90, fill="#D3D3D3", outline="black")
+canvas.create_text(150, 80, text="+", font=("Arial", 10))
+
+# --- Multiplexores--
+def draw_mux(canvas, x, y, width=28, height=22):
+    points = [
+        x, y,  # esquina superior izquierda
+        x + width, y + height // 4,  # esquina superior derecha
+        x + width, y + 3 * height // 4,  # esquina inferior derecha
+        x, y + height  # esquina inferior izquierda
+    ]
+    return canvas.create_polygon(points, fill="white", outline="black", width=2)
+
+# --- MUX antes del PC---
+mux0_id = draw_mux(canvas, 20, 65, width=20, height=30)
+canvas.create_text(30, 55, text="MUX", font=("Arial", 6))
+canvas.create_text(18, 70, text="2", font=("Arial", 6))
+canvas.create_text(18, 90, text="4", font=("Arial", 6))
+
+# --- MUX despues del PC ---
+mux1_id = draw_mux(canvas, 135, 110)  
+canvas.create_text(135 + 14, 110 - 8, text="MUX", font=("Arial", 6))
+
+# --- MUX antes de la ALU ---
+mux2_id = draw_mux(canvas, 778, 110)
+canvas.create_text(778 + 14, 110 - 8, text="MUX", font=("Arial", 6))
+
+
+pc_x2 = coords["PC"][2]
+pc_yc = (coords["PC"][1] + coords["PC"][3]) // 2
+alu_x1 = coords["ALU"][0]
+alu_yc = (coords["ALU"][1] + coords["ALU"][3]) // 2
+
+# --- Refresh GUI ---
 def refresh_gui():
     cycle_label.config(text=f"Ciclo: {cycle}")
     pc_label.config(text=f"PC: {cpu.pc}")
     time_label.config(text=f"Tiempo transcurrido: {time.time() - start_time:.2f}s")
-
-    for i, instr in enumerate(cpu.pipeline):
-        txt = instr.raw if instr else "None"
-        pipeline_labels[i].config(text=f"{['IF', 'ID', 'EX', 'MEM', 'WB'][i]}: {txt}")
-
     reg_text.delete(1.0, tk.END)
     reg_text.insert(tk.END, "Registros:\n")
     for i in range(0, 32, 4):
-        reg_text.insert(tk.END, f"x{i}: {cpu.regs.registers[i]:<4}  x{i+1}: {cpu.regs.registers[i+1]:<4}  x{i+2}: {cpu.regs.registers[i+2]:<4}  x{i+3}: {cpu.regs.registers[i+3]:<4}\n")
-
+        reg_text.insert(tk.END, f"x{i:2}: {cpu.regs.registers[i]:<4}  x{i+1:2}: {cpu.regs.registers[i+1]:<4}  x{i+2:2}: {cpu.regs.registers[i+2]:<4}  x{i+3:2}: {cpu.regs.registers[i+3]:<4}\n")
     mem_text.delete(1.0, tk.END)
     mem_text.insert(tk.END, "Memoria (celdas con valor ≠ 0):\n")
     for i, val in enumerate(cpu.mem.dump()):
         if val != 0:
             mem_text.insert(tk.END, f"[{i*4}] = {val}\n")
-
     log_text.delete(1.0, tk.END)
     log_text.insert(tk.END, "Últimos accesos a memoria:\n")
     for action, addr, val in cpu.mem.get_access_log(n=10):
         log_text.insert(tk.END, f"{action} @ {addr} = {val}\n")
 
-    for name, label in module_labels.items():
-        color = "lightgreen" if cpu.modules[name] else "lightcoral"
-        label.config(bg=color)
+    # --- Restaurar color original de todos los bloques ---
+    for name, block_id in block_ids.items():
+        fill = "#FFF" if "/" in name else "#E6E6FA"
+        canvas.itemconfig(block_id, fill=fill)
 
-    for i, name in enumerate(['IF', 'ID', 'EX', 'MEM', 'WB']):
-        instr = cpu.pipeline[i]
-        if instr:
-            color = "lightblue" if getattr(instr, "type", "") == "NOP" else "lightgreen"
-        else:
-            color = "lightcoral"
-        stage_blocks[name]["canvas"].itemconfig(stage_blocks[name]["rect"], fill=color)
+    # --- Resaltar TODOS los bloques funcionales donde hay instrucciones en el pipeline ---
+    stage_to_block = [
+        "Instr. memory",   # IF/ID
+        "Registers",       # ID/EX
+        "ALU",             # EX/MEM
+        "Data memory"      # MEM/WB
+    ]
+    stage_names = ["IF/ID", "ID/EX", "EX/MEM", "MEM/WB"]
+    if hasattr(cpu, "pipeline"):
+        for idx in range(4):
+            if cpu.pipeline[idx] is not None:
+                # Resalta el bloque funcional
+                block_name = stage_to_block[idx]
+                if block_name in block_ids:
+                    canvas.itemconfig(block_ids[block_name], fill="#FFD700")
+                # Resalta el registro de pipeline correspondiente
+                stage = stage_names[idx]
+                if stage in block_ids:
+                    canvas.itemconfig(block_ids[stage], fill="#FFD700")
 
+# --- Controladores ---
 def update():
     global cycle
     cpu.step()
@@ -141,25 +229,18 @@ def run_all():
         update()
 
 def reset():
-    global cpu, cycle, start_time
+    global cpu, cycle, start_time, running
     cpu = Processor(program)
     cycle = 0
     start_time = time.time()
+    running = False
     refresh_gui()
 
-step_btn = tk.Button(root, text="Siguiente ciclo", command=update)
-step_btn.pack()
+step_btn.config(command=update)
+start_btn.config(command=start_auto)
+stop_btn.config(command=stop_auto)
+run_all_btn.config(command=run_all)
+reset_btn.config(command=reset)
 
-start_btn = tk.Button(root, text="Inicio automático", command=start_auto)
-start_btn.pack()
-
-stop_btn = tk.Button(root, text="Detener automático", command=stop_auto)
-stop_btn.pack()
-
-run_all_btn = tk.Button(root, text="Ejecutar completo", command=run_all)
-run_all_btn.pack()
-
-reset_btn = tk.Button(root, text="Reiniciar", command=reset)
-reset_btn.pack()
-
+refresh_gui()
 root.mainloop()
