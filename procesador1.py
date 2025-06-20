@@ -2,7 +2,7 @@ from processor import Processor
 import tkinter as tk
 import time
 
-def crear_procesador1(parent_frame):
+def crear_procesador1(parent_frame, modo):
     program = [
         'addi x1, x0, 5',
         'addi x2, x0, 5',
