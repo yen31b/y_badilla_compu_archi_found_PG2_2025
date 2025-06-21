@@ -93,7 +93,7 @@ def crear_procesador1(parent_frame, modo):
 
     stage_dividers = [440, 820, 1060, 1280]
 
-    canvas.create_text(canvas_w//2, 10, text="5-Stage RISC-V Processor ", font=("Arial", 12, "bold"))
+    canvas.create_text(canvas_w//2, 10, text="5-Stage RISC-V Processor w/o Forwarding or Hazard Detection", font=("Arial", 12, "bold"))
 
     for x in stage_dividers:
         canvas.create_line(x, 90, x, 430, width=7, fill="#999")
@@ -135,6 +135,7 @@ def crear_procesador1(parent_frame, modo):
         alu_id = canvas.create_polygon(flat_points, fill="#E6E6FA", outline="black", width=2)
         return alu_id
 
+
     # --- Sumador ---
     muxS_id = draw_mux(canvas, 235, 110, width=20, height=30)  
     canvas.create_text(250, 98, text="Sumador", font=("Arial", 6))
@@ -160,6 +161,7 @@ def crear_procesador1(parent_frame, modo):
     canvas.create_line(50, 235, 115, 235) #M1 y ALU
 
     # --- MUX arriba antes de la ALU ---
+
     mux_extra_id = draw_mux(canvas, 888, 163, width=20, height=30)
     canvas.create_line(908, 177, 950, 177) #M a ALU
 
@@ -168,6 +170,7 @@ def crear_procesador1(parent_frame, modo):
     canvas.create_line(908, 243, 950, 243) #M a ALU
 
     # --- MUX después de MEM/WB ---
+
     mux_final_id = draw_mux(canvas, 1380, 160, width=20, height=50)
 
     #--- Líneas ---
@@ -239,7 +242,6 @@ def crear_procesador1(parent_frame, modo):
     canvas.create_line(1310, 165, 1320, 165) #linea centro mux final
     canvas.create_line(1320, 165, 1320, 181)
     canvas.create_line(1320, 181, 1381, 181)
-
     # Coordenadas del ALU
     alu_x1, alu_y1, alu_x2, alu_y2 = coords["ALU"]
     alu_width = alu_x2 - alu_x1

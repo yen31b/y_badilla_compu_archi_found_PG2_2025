@@ -84,7 +84,7 @@ def crear_procesador2(parent_frame, modo):
     canvas = tk.Canvas(main_frame, width=canvas_w, height=canvas_h, bg="#e0f7fa")  # Fondo celeste claro
     canvas.grid(row=0, column=0, rowspan=4, padx=5, pady=5)
     canvas.config(width=canvas_w, height=canvas_h)
-    canvas.create_text(canvas_w//2, 10, text="5-Stage RISC-V Processor w/o Forwarding or Hazard Detection", font=("Arial", 12, "bold"), fill="#00796b")
+    canvas.create_text(canvas_w//2, 10, text="5-Stage RISC-V Processor ", font=("Arial", 12, "bold"), fill="#00796b")
 
     # Botones 
     btn_y = 290  
@@ -170,12 +170,20 @@ def crear_procesador2(parent_frame, modo):
     canvas.create_line(50, 235, 115, 235) #M1 y ALU
 
     # --- MUX arriba antes de la ALU ---
-    mux_extra_id = draw_mux(canvas, 888, 163, width=20, height=30)
-    canvas.create_line(908, 177, 950, 177) #M a ALU
+    mux_extra_id = draw_mux(canvas, 905, 163, width=15, height=30)
+    canvas.create_line(920, 177, 1000, 177) #M a ALU
 
     # --- MUX abajo antes de la ALU ---
-    mux2_id = draw_mux(canvas, 888, 227, width=20, height=30)
-    canvas.create_line(908, 243, 950, 243) #M a ALU
+    mux2_id = draw_mux(canvas, 905, 230, width=15, height=30)
+    canvas.create_line(920, 243, 1000, 243) #M a ALU
+
+      # --- MUX arriba primero de la ALU ---
+    mux_extra_id = draw_mux(canvas, 865, 163, width=18, height=28)
+    canvas.create_line(849, 180, 865, 180) #M a ALU
+
+    # --- MUX abajo primero de la ALU ---
+    mux2_id = draw_mux(canvas, 865, 220, width=18, height=28)
+    canvas.create_line(849, 232, 865, 232) #M a ALU
 
     # --- MUX después de MEM/WB ---
     mux_final_id = draw_mux(canvas, 1380, 160, width=20, height=50)
@@ -192,18 +200,31 @@ def crear_procesador2(parent_frame, modo):
     canvas.create_line(240, 140, 240, 224)#PC y MS
     canvas.create_line(240, 150, 440, 150) # PC + Y bloque 1
     canvas.create_line(470, 150, 821, 150) # Bloque 1 a bloque 2
-    canvas.create_line(851, 150, 880, 150) # iD/EX y LINEA mux arriba alu
-    canvas.create_line(880, 150, 880, 167) #ID/EX y mux
-    canvas.create_line(880, 167, 888, 167) 
-    canvas.create_line(851, 182, 888, 182)
-    canvas.create_line(851, 232, 888, 232)
-    canvas.create_line(850, 280, 865, 280) # iD/EX y LINEA mux abajo alu
-    canvas.create_line(865, 250, 865, 281)
-    canvas.create_line(865, 250, 888, 250)
+    canvas.create_line(851, 150, 890, 150) # iD/EX y LINEA mux arriba alu
+    canvas.create_line(890, 150, 890, 170)
+    canvas.create_line(890, 170, 905, 170)
+    canvas.create_line(883, 180, 905, 180) #union multiplexores alu arriba
+    canvas.create_line(894, 180, 894, 320) #union multiplexores alu arriba y branch
+    canvas.create_line(894, 320, 915, 320) 
+    canvas.create_line(855, 170, 865, 170) #primer mux alu hacia arriba
+    canvas.create_line(857, 187, 865, 187) #primer mux alu hacia abajo
+    canvas.create_line(857, 187, 857, 425)
+    canvas.create_line(857, 425, 1111, 425)
+    canvas.create_line(1110, 210, 1110, 425)
+    canvas.create_line(855, 225, 865, 225) #segundo mux alu hacia arriba
+    canvas.create_line(855, 70, 855, 225)
+    canvas.create_line(857, 236, 865, 236) #segundo mux alu hacia abajo
+    canvas.create_line(888, 300, 1060, 300) #Nodo MuxAb branch a EX/men
     canvas.create_line(801, 182, 821, 182) #Register y ID/EX
     canvas.create_line(801, 232, 821, 232) 
     canvas.create_line(345, 240, 345, 270)#Instr M y CompressedD
     canvas.create_line(720, 280, 820, 280) #IMM Y ID/EX
+    canvas.create_line(850, 280, 900, 280)
+    canvas.create_line(899, 250, 899, 280)
+    canvas.create_line(899, 250, 904, 250)
+    canvas.create_line(883, 235, 905, 235) #union multiplexores alu abajo
+    canvas.create_line(888, 236, 888, 335) #union multiplexores alu abajo y branch
+    canvas.create_line(888, 335, 916, 335)
     canvas.create_line(590, 280, 687, 280) #IMM Y Decode 
     canvas.create_line(420, 290, 440, 290)#CompressedD y IF
     canvas.create_line(469, 290, 508, 290)#IF y decode
@@ -228,11 +249,7 @@ def crear_procesador2(parent_frame, modo):
     canvas.create_line(890, 387, 1060, 387) #bloque 2 y boque 3 abajo
     canvas.create_line(890, 357, 890, 387) 
     canvas.create_line(850, 357, 890, 357) 
-    canvas.create_line(880, 335, 915, 335) #Branch a primera linea multiplexor abajo alu
-    canvas.create_line(880, 232, 880, 335)
-    canvas.create_line(860, 320, 915, 320) #Branch a segunda linea multiplexor arriba alu
-    canvas.create_line(860, 182, 860, 320)
-    canvas.create_line(880, 300, 1060, 300) #Nodo MuxAb branch a EX/men
+
     canvas.create_line(1020, 210, 1060, 210) #ALU y EX/MEM
     canvas.create_line(590, 215, 660, 215) #Decode y registers  R
     canvas.create_line(590, 230, 660, 230) 
