@@ -82,7 +82,7 @@ def continuar():
     start_win.withdraw()
     lanzar_ventana_principal(modo1, modo2)
 
-btn = tk.Button(start_win, text="Continúe", font=("Arial", 24, "bold"), bg="#1976d2", fg="white", activebackground="#1565c0", activeforeground="white", command=continuar, bd=3, relief="raised")
+btn = tk.Button(start_win, text="Continuar", font=("Arial", 24, "bold"), bg="#1976d2", fg="white", activebackground="#1565c0", activeforeground="white", command=continuar, bd=3, relief="raised")
 btn.grid(row=2, column=1, columnspan=2, pady=60)
 
 start_win.mainloop()
