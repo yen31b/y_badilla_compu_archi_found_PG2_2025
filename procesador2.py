@@ -138,6 +138,7 @@ def crear_procesador2(parent_frame, modo):
     # --- Sumador ---
     muxS_id = draw_mux(canvas, 235, 110, width=20, height=30)  
     canvas.create_text(250, 98, text="Sumador", font=("Arial", 6))
+    block_ids["SUMADOR"] = muxS_id # Se resalta el sumador 
 
     # --- MUX antes arriba del PC---
     mux0_id = draw_mux(canvas, 171, 104, width=20, height=30)
@@ -305,6 +306,10 @@ def crear_procesador2(parent_frame, modo):
                     stage = stage_names[idx]
                     if stage in block_ids:
                         canvas.itemconfig(block_ids[stage], fill="#FFD700")
+
+        # --- Resaltar el sumador si se usa ---
+        if hasattr(cpu, "modules") and cpu.modules.get("SUMADOR") and "SUMADOR" in block_ids:
+            canvas.itemconfig(block_ids["SUMADOR"], fill="#FFD700")
 
         if hasattr(refresh_gui, "stage_text_ids"):
             for tid in refresh_gui.stage_text_ids:
