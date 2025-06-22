@@ -287,10 +287,9 @@ def crear_procesador2(parent_frame, modo):
         for i in range(0, 32, 4):
             reg_text.insert(tk.END, f"x{i:2}: {cpu.regs.registers[i]:<4}  x{i+1:2}: {cpu.regs.registers[i+1]:<4}  x{i+2:2}: {cpu.regs.registers[i+2]:<4}  x{i+3:2}: {cpu.regs.registers[i+3]:<4}\n")
         mem_text.delete(1.0, tk.END)
-        mem_text.insert(tk.END, "Memoria (celdas con valor ≠ 0):\n")
+        mem_text.insert(tk.END, "Memoria (todas las celdas):\n")
         for i, val in enumerate(cpu.mem.dump()):
-            if val != 0:
-                mem_text.insert(tk.END, f"[{i*4}] = {val}\n")
+            mem_text.insert(tk.END, f"[{i*4:04}] = {val}\n")
         log_text.delete(1.0, tk.END)
         log_text.insert(tk.END, "Últimos accesos a memoria:\n")
         for action, addr, val in cpu.mem.get_access_log(n=10):
