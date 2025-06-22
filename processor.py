@@ -3,6 +3,7 @@ from instruction import Instruction
 from register_file import RegisterFile
 from RAM import RAM
 from ALU import ALU  # nueva ALU orientada a objetos
+from components import MUX, Sumador
 
 class Processor:
     def __init__(self, instructions):
@@ -10,10 +11,12 @@ class Processor:
         self.instructions = [Instruction(line) for line in instructions]
         self.regs = RegisterFile()
         self.mem = RAM(1024)
-        self.alu = ALU()  # instancia de la nueva ALU
+        self.alu = ALU()  # instancia de la ALU
         self.pipeline = [None] * 5  # IF, ID, EX, MEM, WB
-        self.modules = {"ALU": False, "Memoria": False, "Registros": False}
+        self.modules = {"ALU": False, "Memoria": False, "Registros": False, "MUX": False,"SUMADOR": False}
         self.jump_taken = False
+        self.mux = MUX()
+        self.sumador = Sumador()
 
     def step(self):
         self.modules = {"ALU": False, "Memoria": False, "Registros": False}
@@ -56,9 +59,11 @@ class Processor:
                 self.modules["ALU"] = True
             elif instr.opcode == 'addi':
                 a = self.regs.read(instr.rs1)
-                b = int(instr.imm)
+                b = self.mux.select(1, self.regs.read('x0'), int(instr.imm))  # mux ficticio: ignora 'x0', devuelve imm
                 instr.result = self.alu.operacion_alu('ADD', a, b)
                 self.modules["ALU"] = True
+                self.modules["MUX"] = True
+
             elif instr.opcode in ('sub', 'and', 'or', 'xor', 'slt', 'sltu'):
                 a = self.regs.read(instr.rs1)
                 b = self.regs.read(instr.rs2)
@@ -86,6 +91,8 @@ class Processor:
         # No hazard handling
 
         if not self.jump_taken:
-            self.pc += 4
+            self.pc = self.sumador.sumar(self.pc, 4)
+            self.modules["SUMADOR"] = True
+
 
         self.pipeline[0] = fetched_instr
