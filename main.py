@@ -39,129 +39,43 @@ def lanzar_ventana_principal(modo1, modo2):
     root.title("Simulador RISCV - Pipeline ")
     root.geometry("2000x1000")
 
-    # Frame Procesador 1
-    frame1 = tk.Frame(root, bg="#6c47c7")
+    # --- Barras de desplazamiento ---
+    canvas = tk.Canvas(root, borderwidth=0, background="#f0f0f0")
+    scroll_y = tk.Scrollbar(root, orient="vertical", command=canvas.yview)
+    scroll_x = tk.Scrollbar(root, orient="horizontal", command=canvas.xview)
+    scrollable_frame = tk.Frame(canvas, background="#f0f0f0")
+
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(
+            scrollregion=canvas.bbox("all")
+        )
+    )
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
+
+    canvas.pack(side="left", fill="both", expand=True)
+    scroll_y.pack(side="right", fill="y")
+    scroll_x.pack(side="bottom", fill="x")
+
+    # --- Procesador 1 ---
+    frame1 = tk.Frame(scrollable_frame, bg="#6c47c7")
     frame1.pack(fill="x", padx=10, pady=(10, 0))
     label1 = tk.Label(frame1, text="Procesador 1", bg="#6c47c7", fg="white", font=("Arial", 14, "bold"))
     label1.pack(anchor="center", pady=(2, 0))
-    main_frame1 = tk.Frame(root)
+    main_frame1 = tk.Frame(scrollable_frame)
     main_frame1.pack()
     crear_procesador1(main_frame1, modo1)
 
-    # Frame Procesador 2
-    frame2 = tk.Frame(root, bg="#1ea7c6")
+    # --- Procesador 2 ---
+    frame2 = tk.Frame(scrollable_frame, bg="#1ea7c6")
     frame2.pack(fill="x", padx=10, pady=(5, 0))
     label2 = tk.Label(frame2, text="Procesador 2", bg="#1ea7c6", fg="white", font=("Arial", 14, "bold"))
     label2.pack(anchor="center", pady=(2, 0))
-    main_frame2 = tk.Frame(root)
+    main_frame2 = tk.Frame(scrollable_frame)
     main_frame2.pack()
     crear_procesador2(main_frame2, modo2)
-
-    module_labels = {
-        "ALU": tk.Label(root, text="ALU", width=25, bg="lightcoral", relief="solid"),
-        "Memoria": tk.Label(root, text="Memoria", width=25, bg="lightcoral", relief="solid"),
-        "Registros": tk.Label(root, text="Registros", width=25, bg="lightcoral", relief="solid"),
-        "MUX": tk.Label(root, text="MUX", width=25, bg="lightcoral", relief="solid"),
-        "SUMADOR": tk.Label(root, text="SUMADOR", width=25, bg="lightcoral", relief="solid")
-    }
-
-    for label in module_labels.values():
-        label.pack()
-
-    canvas = tk.Canvas(root, width=600, height=150)
-    canvas.pack()
-
-    stage_blocks = {}
-    stage_positions = [(50, 30), (150, 30), (250, 30), (350, 30), (450, 30)]
-
-    for i, name in enumerate(['IF', 'ID', 'EX', 'MEM', 'WB']):
-        x, y = stage_positions[i]
-        rect_id = canvas.create_rectangle(x, y, x+80, y+60, fill="lightcoral")
-        text_id = canvas.create_text(x+40, y+30, text=name)
-        stage_blocks[name] = {"rect": rect_id, "canvas": canvas}
-
-    def refresh_gui():
-        cycle_label.config(text=f"Ciclo: {cycle}")
-        pc_label.config(text=f"PC: {cpu.pc}")
-        time_label.config(text=f"Tiempo transcurrido: {time.time() - start_time:.2f}s")
-
-        for i, instr in enumerate(cpu.pipeline):
-            txt = instr.raw if instr else "None"
-            pipeline_labels[i].config(text=f"{['IF', 'ID', 'EX', 'MEM', 'WB'][i]}: {txt}")
-
-        reg_text.delete(1.0, tk.END)
-        reg_text.insert(tk.END, "Registros:\n")
-        for i in range(0, 32, 4):
-            reg_text.insert(tk.END, f"x{i}: {cpu.regs.registers[i]:<4}  x{i+1}: {cpu.regs.registers[i+1]:<4}  x{i+2}: {cpu.regs.registers[i+2]:<4}  x{i+3}: {cpu.regs.registers[i+3]:<4}\n")
-
-        mem_text.delete(1.0, tk.END)
-        mem_text.insert(tk.END, "Memoria (todas las celdas):\n")
-        for i, val in enumerate(cpu.mem.dump()):
-            mem_text.insert(tk.END, f"[{i*4:04}] = {val}\n")
-
-        log_text.delete(1.0, tk.END)
-        log_text.insert(tk.END, "Últimos accesos a memoria:\n")
-        for action, addr, val in cpu.mem.get_access_log(n=10):
-            log_text.insert(tk.END, f"{action} @ {addr} = {val}\n")
-
-        for name, label in module_labels.items():
-            color = "lightgreen" if cpu.modules[name] else "lightcoral"
-            label.config(bg=color)
-
-        for i, name in enumerate(['IF', 'ID', 'EX', 'MEM', 'WB']):
-            instr = cpu.pipeline[i]
-            if instr:
-                color = "lightblue" if getattr(instr, "type", "") == "NOP" else "lightgreen"
-            else:
-                color = "lightcoral"
-            stage_blocks[name]["canvas"].itemconfig(stage_blocks[name]["rect"], fill=color)
-
-    def update():
-        global cycle
-        cpu.step()
-        cycle += 1
-        refresh_gui()
-
-    def auto_run():
-        global running
-        if running:
-            update()
-            root.after(1000, auto_run)
-
-    def start_auto():
-        global running
-        running = True
-        auto_run()
-
-    def stop_auto():
-        global running
-        running = False
-
-    def run_all():
-        while cpu.pc // 4 < len(cpu.instructions) or any(cpu.pipeline):
-            update()
-
-    def reset():
-        global cpu, cycle, start_time
-        cpu = Processor(program)
-        cycle = 0
-        start_time = time.time()
-        refresh_gui()
-
-    step_btn = tk.Button(root, text="Siguiente ciclo", command=update)
-    step_btn.pack()
-
-    start_btn = tk.Button(root, text="Inicio automático", command=start_auto)
-    start_btn.pack()
-
-    stop_btn = tk.Button(root, text="Detener automático", command=stop_auto)
-    stop_btn.pack()
-
-    run_all_btn = tk.Button(root, text="Ejecutar completo", command=run_all)
-    run_all_btn.pack()
-
-    reset_btn = tk.Button(root, text="Reiniciar", command=reset)
-    reset_btn.pack()
 
     root.mainloop()
 

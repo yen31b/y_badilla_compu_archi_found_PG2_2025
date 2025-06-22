@@ -40,27 +40,21 @@ def crear_procesador2(parent_frame, modo):
     log_text = tk.Text(main_frame, height=8, width=37, bg="#e0f7fa")
     log_text.grid(row=2, column=1, padx=5, pady=2)
 
+    canvas_w, canvas_h = 1500, 500 
+    canvas = tk.Canvas(main_frame, width=canvas_w, height=canvas_h, bg="#e0f7fa")
+    canvas.grid(row=0, column=0, rowspan=4, padx=5, pady=5)
+    canvas.config(width=canvas_w, height=canvas_h)
+    canvas.create_text(canvas_w//2, 10, text="5-Stage RISC-V Processor ", font=("Arial", 12, "bold"), fill="#00796b")
+
+    # --- Status frame debajo del cuadro de "Últimos accesos a memoria" ---
     status_frame = tk.Frame(main_frame)
-    status_frame.grid(row=3, column=0, columnspan=2)
+    status_frame.grid(row=3, column=1, pady=(10, 0), sticky="w")
     cycle_label = tk.Label(status_frame, text="Ciclo: 0", fg="#00796b")
     cycle_label.pack(side=tk.LEFT, padx=8)
     pc_label = tk.Label(status_frame, text="PC: 0", fg="#00796b")
     pc_label.pack(side=tk.LEFT, padx=8)
     time_label = tk.Label(status_frame, text="Tiempo transcurrido: 0.00s", fg="#00796b")
     time_label.pack(side=tk.LEFT, padx=8)
-
-    btn_frame = tk.Frame(main_frame)
-    btn_frame.grid(row=4, column=0, columnspan=2, pady=10)
-    step_btn = tk.Button(btn_frame, text="Siguiente ciclo", width=16, bg="#b2ebf2")
-    start_btn = tk.Button(btn_frame, text="Inicio automático", width=16, bg="#b2ebf2")
-    stop_btn = tk.Button(btn_frame, text="Detener automático", width=16, bg="#b2ebf2")
-    run_all_btn = tk.Button(btn_frame, text="Ejecutar completo", width=16, bg="#b2ebf2")
-    reset_btn = tk.Button(btn_frame, text="Reiniciar", width=16, bg="#b2ebf2")
-    step_btn.pack(side=tk.LEFT, padx=5)
-    start_btn.pack(side=tk.LEFT, padx=5)
-    stop_btn.pack(side=tk.LEFT, padx=5)
-    run_all_btn.pack(side=tk.LEFT, padx=5)
-    reset_btn.pack(side=tk.LEFT, padx=5)
 
     coords = {
         "PC": (150, 210, 220, 240),
@@ -80,10 +74,6 @@ def crear_procesador2(parent_frame, modo):
 
     stage_dividers = [440, 820, 1060, 1280]
 
-    canvas_w, canvas_h = 1500, 500 
-    canvas = tk.Canvas(main_frame, width=canvas_w, height=canvas_h, bg="#e0f7fa")  # Fondo celeste claro
-    canvas.grid(row=0, column=0, rowspan=4, padx=5, pady=5)
-    canvas.config(width=canvas_w, height=canvas_h)
     canvas.create_text(canvas_w//2, 10, text="5-Stage RISC-V Processor ", font=("Arial", 12, "bold"), fill="#00796b")
 
     # Botones 
