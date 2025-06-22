@@ -16,7 +16,7 @@ program = [
     'addi x6, x0, 88',
     'addi x7, x0, 77',
     'sw x3, 0(x0)',         # guardar x3 en memoria
-    'lw x8, 0(x0)'          # cargar valor guardado en x3 en x8
+    'lw x8, 0(x0)',         # cargar valor guardado en x3 en x8
     'xor x10, x1, x2',     # x10 = x1 ^ x2
     'and x11, x1, x2',     # x11 = x1 & x2
     'or x12, x1, x2',      # x12 = x1 | x2
@@ -59,7 +59,9 @@ log_text.pack()
 module_labels = {
     "ALU": tk.Label(root, text="ALU", width=25, bg="lightcoral", relief="solid"),
     "Memoria": tk.Label(root, text="Memoria", width=25, bg="lightcoral", relief="solid"),
-    "Registros": tk.Label(root, text="Registros", width=25, bg="lightcoral", relief="solid")
+    "Registros": tk.Label(root, text="Registros", width=25, bg="lightcoral", relief="solid"),
+    "MUX": tk.Label(root, text="MUX", width=25, bg="lightcoral", relief="solid"),
+    "SUMADOR": tk.Label(root, text="SUMADOR", width=25, bg="lightcoral", relief="solid")
 }
 
 for label in module_labels.values():
@@ -93,10 +95,10 @@ def refresh_gui():
         reg_text.insert(tk.END, f"x{i}: {cpu.regs.registers[i]:<4}  x{i+1}: {cpu.regs.registers[i+1]:<4}  x{i+2}: {cpu.regs.registers[i+2]:<4}  x{i+3}: {cpu.regs.registers[i+3]:<4}\n")
 
     mem_text.delete(1.0, tk.END)
-    mem_text.insert(tk.END, "Memoria (celdas con valor ≠ 0):\n")
+    mem_text.insert(tk.END, "Memoria (todas las celdas):\n")
     for i, val in enumerate(cpu.mem.dump()):
-        if val != 0:
-            mem_text.insert(tk.END, f"[{i*4}] = {val}\n")
+        mem_text.insert(tk.END, f"[{i*4:04}] = {val}\n")
+
 
     log_text.delete(1.0, tk.END)
     log_text.insert(tk.END, "Últimos accesos a memoria:\n")
