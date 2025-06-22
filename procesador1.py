@@ -141,6 +141,11 @@ def crear_procesador1(parent_frame, modo):
     canvas.create_text(250, 98, text="Sumador", font=("Arial", 6))
     block_ids["SUMADOR"] = muxS_id # Se resalta el sumador 
 
+
+
+
+
+
     # --- MUX antes arriba del PC---
     mux0_id = draw_mux(canvas, 171, 104, width=20, height=30)
     canvas.create_text(167, 104, text="4", font=("Arial", 6))
@@ -148,6 +153,7 @@ def crear_procesador1(parent_frame, modo):
     canvas.create_text(167, 123, text="2", font=("Arial", 6))
     canvas.create_line(158, 127, 168, 127)
     canvas.create_line(190, 120, 236, 120)  #M0 y MS
+    block_ids["mux0_id"] = mux0_id         # MUX antes arriba del PC
 
     # --- MUX antes del PC ---
     mux1_id = draw_mux(canvas, 115, 210, width=20, height=30)  
@@ -160,20 +166,23 @@ def crear_procesador1(parent_frame, modo):
     canvas.create_line(50, 30, 1045, 30) #M1 y ALU
     canvas.create_line(50, 30, 50, 235) #M1 y ALU
     canvas.create_line(50, 235, 115, 235) #M1 y ALU
+    block_ids["mux1_id"] = mux1_id         # MUX antes del PC
 
     # --- MUX arriba antes de la ALU ---
 
     mux_extra_id = draw_mux(canvas, 888, 163, width=20, height=30)
     canvas.create_line(908, 177, 950, 177) #M a ALU
+    block_ids["mux_extra_id"] = mux_extra_id   # MUX arriba antes de la ALU
 
     # --- MUX abajo antes de la ALU ---
     mux2_id = draw_mux(canvas, 888, 227, width=20, height=30)
     canvas.create_line(908, 243, 950, 243) #M a ALU
+    block_ids["mux2_id"] = mux2_id         # MUX abajo antes de la ALU
 
     # --- MUX después de MEM/WB ---
 
     mux_final_id = draw_mux(canvas, 1380, 160, width=20, height=50)
-
+    block_ids["mux_final_id"] = mux_final_id   # MUX después de MEM/WB
     #--- Líneas ---
     canvas.create_line(255, 123, 440, 123)  #sumador a 1 bloque separador
     canvas.create_line(469, 123, 821, 123)  #Bloque 1 a bloque 2
@@ -280,6 +289,32 @@ def crear_procesador1(parent_frame, modo):
         # --- Resaltar el SUMADOR si corresponde ---
         if hasattr(cpu, "modules") and cpu.modules.get("SUMADOR") and "SUMADOR" in block_ids:
             canvas.itemconfig(block_ids["SUMADOR"], fill="#FFD700")
+
+        #Resaltar el Decode solo cuando se utilize 
+        if hasattr(cpu, "modules"):
+            if cpu.modules.get("DECODE") and "Decode" in block_ids:
+                canvas.itemconfig(block_ids["Decode"], fill="#FFD700")
+            if cpu.modules.get("IMM") and "Imm" in block_ids:
+                canvas.itemconfig(block_ids["Imm"], fill="#FFD700")
+
+        #Resaltar el bloque Compressed Decode cuando se usa 
+        if cpu.modules.get("COMPRESSED_DECODE") and "Compressed decode" in block_ids:
+             canvas.itemconfig(block_ids["Compressed decode"], fill="#FFD700")
+
+        #Resaltar el bloque PC cuando se utilize 
+        if hasattr(cpu, "modules"):
+            if cpu.modules.get("PC") and "PC" in block_ids:
+                canvas.itemconfig(block_ids["PC"], fill="#FFD700")
+
+        #Resaltar el Branch cuando se utilize 
+        if hasattr(cpu, "modules"):
+            if cpu.modules.get("BRANCH") and "Branch" in block_ids:
+                canvas.itemconfig(block_ids["Branch"], fill="#FFD700")
+
+        #Resaltar muxes cuando se utilicen 
+        for name in ["mux0_id", "mux1_id", "mux_extra_id", "mux2_id", "mux_final_id"]:
+            if cpu.modules.get(name) and name in block_ids:
+                canvas.itemconfig(block_ids[name], fill="#FFD700")
 
         # --- Resaltar TODOS los bloques funcionales donde hay instrucciones en el pipeline ---
         stage_to_block = [

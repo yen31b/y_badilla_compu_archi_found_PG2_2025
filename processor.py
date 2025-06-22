@@ -13,7 +13,26 @@ class Processor:
         self.mem = RAM(1024)
         self.alu = ALU()  # instancia de la ALU
         self.pipeline = [None] * 5  # IF, ID, EX, MEM, WB
-        self.modules = {"ALU": False, "Memoria": False, "Registros": False, "MUX": False,"SUMADOR": False}
+        self.modules = {
+            "ALU": False,
+            "Memoria": False,
+            "Registros": False,
+            "MUX": False,
+            "SUMADOR": False,
+            "DECODE": False,
+            "IMM": False,
+            "PC": False,
+            "COMPRESSED_DECODE": False,
+            "BRANCH": False,
+            "mux0_id": False,
+            "mux1_id": False,
+            "mux_extra_id": False,
+            "mux2_id": False,
+            "mux_final_id": False
+        }
+
+
+
         self.jump_taken = False
         self.mux = MUX()
         self.sumador = Sumador()
@@ -24,8 +43,13 @@ class Processor:
 
         if self.pc // 4 < len(self.instructions):
             fetched_instr = self.instructions[self.pc // 4]
+            self.modules["PC"] = True
         else:
             fetched_instr = None
+
+
+        if fetched_instr:
+            self.modules["COMPRESSED_DECODE"] = True
 
         self.pipeline[4] = self.pipeline[3]
         self.pipeline[3] = self.pipeline[2]
@@ -37,6 +61,7 @@ class Processor:
         if instr and instr.opcode in ('add', 'addi', 'lw', 'sub', 'and', 'or', 'xor', 'slt', 'sltu'):
             self.regs.write(instr.rd, instr.result)
             self.modules["Registros"] = True
+            self.modules["mux_final_id"] = True
 
         # MEM
         instr = self.pipeline[3]
@@ -62,7 +87,7 @@ class Processor:
                 b = self.mux.select(1, self.regs.read('x0'), int(instr.imm))  # mux ficticio: ignora 'x0', devuelve imm
                 instr.result = self.alu.operacion_alu('ADD', a, b)
                 self.modules["ALU"] = True
-                self.modules["MUX"] = True
+                self.modules["mux2_id"] = True  # mux de entrada 2 (inmediato)
 
             elif instr.opcode in ('sub', 'and', 'or', 'xor', 'slt', 'sltu'):
                 a = self.regs.read(instr.rs1)
@@ -74,6 +99,7 @@ class Processor:
                 if instr.opcode == 'sw':
                     instr.value = self.regs.read(instr.rs2)
                 self.modules["ALU"] = True
+                
             elif instr.opcode in ('beq', 'bne'):
                 val1 = self.regs.read(instr.rs1)
                 val2 = self.regs.read(instr.rs2)
@@ -82,6 +108,8 @@ class Processor:
                 if condition:
                     self.pc += offset - 4
                     self.jump_taken = True
+                self.modules["BRANCH"] = True 
+                self.modules["mux1_id"] = True
             elif instr.opcode == 'jal':
                 self.regs.write(instr.rd, self.pc)
                 self.pc += int(instr.imm) - 4
@@ -90,9 +118,15 @@ class Processor:
         instr = self.pipeline[1]
         # No hazard handling
 
+        if instr:
+            self.modules["DECODE"] = True
+            if instr.imm is not None:
+                self.modules["IMM"] = True
+
         if not self.jump_taken:
             self.pc = self.sumador.sumar(self.pc, 4)
             self.modules["SUMADOR"] = True
+            self.modules["mux0_id"] = True
 
 
         self.pipeline[0] = fetched_instr
