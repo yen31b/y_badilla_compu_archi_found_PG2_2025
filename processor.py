@@ -114,6 +114,7 @@ class Processor:
                 self.regs.write(instr.rd, self.pc)
                 self.pc += int(instr.imm) - 4
                 self.jump_taken = True
+                self.modules["mux1_id"] = True
 
         instr = self.pipeline[1]
         # No hazard handling
