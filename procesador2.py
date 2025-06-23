@@ -1,6 +1,8 @@
 from processor import Processor
 import tkinter as tk
 import time
+from processor_branch import BranchPredictionProcessor
+
 
 def crear_procesador2(parent_frame, modo):
     program = [

@@ -1,6 +1,8 @@
 from processor import Processor
 import tkinter as tk
 import time
+from processor_branch import BranchPredictionProcessor
+
 
 def crear_procesador1(parent_frame, modo):
     program = [
@@ -15,20 +17,29 @@ def crear_procesador1(parent_frame, modo):
         'nop',
         'addi x6, x0, 88',
         'addi x7, x0, 77',
-        'sw x3, 0(x0)',
-        'lw x8, 0(x0)',
-        'xor x10, x1, x2',
-        'and x11, x1, x2',
-        'or x12, x1, x2',
-        'slt x13, x2, x3',
-        'sltu x14, x2, x3',
-        'sub x15, x3, x1'
+        'sw x3, 0(x0)',         # guardar x3 en memoria
+        'lw x8, 0(x0)',         # cargar valor guardado en x3 en x8
+        'xor x10, x1, x2',     # x10 = x1 ^ x2
+        'and x11, x1, x2',     # x11 = x1 & x2
+        'or x12, x1, x2',      # x12 = x1 | x2
+        'slt x13, x2, x3',     # x13 = 1 si x2 < x3
+        'sltu x14, x2, x3',    # x14 = 1 si x2 < x3 (unsigned)
+        'sub x15, x3, x1'      # x15 = x3 - x1
     ]
 
-    cpu = Processor(program)
+    print("[DEBUG] modo recibido:", modo)
+
+    if "predicción de saltos" in modo:
+        print("[DEBUG] Cargando ProcessorBranch")
+        cpu = BranchPredictionProcessor(program)
+    else:
+        print("[DEBUG] Cargando Processor (sin predicción)")
+        cpu = Processor(program)
+
     start_time = time.time()
     cycle = [0]  
     running = [False]
+
 
     main_frame = tk.Frame(parent_frame)
     main_frame.pack()
@@ -46,6 +57,7 @@ def crear_procesador1(parent_frame, modo):
     mem_text.grid(row=1, column=1, padx=5, pady=2)
     log_text = tk.Text(main_frame, height=8, width=37, bg="#e0f7fa")
     log_text.grid(row=2, column=1, padx=5, pady=2)
+
 
     # Estados debajo de los cuadros de texto
     status_frame = tk.Frame(main_frame)
@@ -280,6 +292,13 @@ def crear_procesador1(parent_frame, modo):
         log_text.insert(tk.END, "Últimos accesos a memoria:\n")
         for action, addr, val in cpu.mem.get_access_log(n=10):
             log_text.insert(tk.END, f"{action} @ {addr} = {val}\n")
+
+
+
+        if hasattr(cpu, "branch_history"):
+            log_text.insert(tk.END, "\nHistorial de predicciones:\n")
+            for addr, status in cpu.branch_history[-5:]:
+                log_text.insert(tk.END, f"{status} @ PC = {addr}\n")
 
         # --- Restaurar color original de todos los bloques ---
         for name, block_id in block_ids.items():
