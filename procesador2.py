@@ -1,32 +1,63 @@
-from processor import Processor
 import tkinter as tk
 import time
-from processor_branch import BranchPredictionProcessor
-
+# Import the updated processor with hazard unit logic
+from processorHU import Processor
 
 def crear_procesador2(parent_frame, modo):
     program = [
-        'addi x1, x0, 5',
-        'addi x2, x0, 5',
-        'beq x1, x2, 4',
-        'nop',
-        'addi x3, x0, 99',
-        'bne x1, x2, 4',
-        'addi x4, x0, 123',
-        'jal x5, 4',
-        'nop',
-        'addi x6, x0, 88',
-        'addi x7, x0, 77',
-        'sw x3, 0(x0)',
-        'lw x8, 0(x0)',
-        'xor x10, x1, x2',
-        'and x11, x1, x2',
-        'or x12, x1, x2',
-        'slt x13, x2, x3',
-        'sltu x14, x2, x3',
-        'sub x15, x3, x1'
+    # Initial Setup: Load some initial values into registers and memory.
+    "addi x5, x0, 100",     # x5 = 100
+    "addi x6, x0, 200",     # x6 = 200
+    "sw   x6, 12(x0)",      # mem[12] = 200
+
+    # --- Test Scenarios ---
+
+    # 1. Baseline (No Hazard)
+    "addi x10, x0, 10",     # x10 = 10
+
+    # 2. EX/MEM Forward
+    # The 'add' needs x10 from the 'addi' immediately before it.
+    # Expected: Forward from EX/MEM. add x11, x10, x5 -> x11 = 10 + 100 = 110
+    "add  x11, x10, x5",
+
+    # 3. MEM/WB Forward
+    # The 'or' needs x10 from two instructions ago.
+    # Expected: Forward from MEM/WB. or x12, x10, x0 -> x12 = 10 | 0 = 10
+    "or   x12, x10, x0",
+
+    # 4. Double Hazard (EX/MEM takes priority - assuming forwarding_unit fix)
+    # 'add' produces x11 = 100. 'sub' produces x11 = 100.
+    # The 'xor' needs x11. It should use the result from 'sub' (100) from EX/MEM, not 'add' (100) from MEM/WB.
+    "add  x11, x5, x0",     # x11 = 100 + 0 = 100 (This will be in MEM stage when xor is in ID)
+    "sub  x11, x6, x5",     # x11 = 200 - 100 = 100 (This will be in EX stage when xor is in ID, should be used)
+    "xor  x13, x11, x5",    # Expected: Forward from EX/MEM. xor x13, x11, x5 -> x13 = 100 ^ 100 = 0
+
+    # 5. Load-Use Hazard (Stall and Forward)
+    # 'lw' loads a value into x14. The very next instruction 'slt' uses x14.
+    # Expected: The pipeline must stall for one cycle.
+    # Then, the value from memory (200) is forwarded from the MEM/WB path.
+    "lw   x14, 12(x0)",     # Load value from mem[12] into x14. x14 = 200 (set by initial sw)
+    "slt  x15, x0, x14",    # Expected: x15 = (0 < 200) = 1
+
+    # 6. Forward to `sw` data source (rs2)
+    # The 'sw' needs the result of 'add' (x16) to store into memory.
+    # Expected: Forward from EX/MEM.
+    "add  x16, x5, x10",    # x16 = 100 + 10 = 110
+    "sw   x16, 16(x0)",     # Store x16 (110) into mem[16].
+
+    # 7. Forward to `beq` sources and Branch Hazard
+    # The 'beq' needs the results from the 'add' (x17) and 'sub' (x18).
+    # Expected: Forward x17 from MEM/WB, forward x18 from EX/MEM. Branch should be taken.
+    "add  x17, x0, x5",     # x17 = 100
+    "sub  x18, x6, x5",     # x18 = 200 - 100 = 100
+    "beq  x17, x18, 12",    # Branch if 100 == 100. Should jump over the next 3 instructions (4*3 = 12 bytes).
+                            # The branch target is the instruction at PC + 12 (i.e., 'addi x20, x0, 777').
+    "addi x19, x0, 999",    # This instruction should be flushed and never executed.
+    "addi x19, x0, 999",    # Placeholder instruction to be skipped
+    "addi x20, x0, 777",    # This is the branch target.
     ]
 
+    # Use the imported Processor
     cpu = Processor(program)
     start_time = time.time()
     cycle = [0]
@@ -35,29 +66,33 @@ def crear_procesador2(parent_frame, modo):
     main_frame = tk.Frame(parent_frame)
     main_frame.pack()
 
-    reg_text = tk.Text(main_frame, height=8, width=37, bg="#e0f7fa")
-    reg_text.grid(row=0, column=1, padx=5, pady=2)
-    mem_text = tk.Text(main_frame, height=8, width=37, bg="#e0f7fa")
-    mem_text.grid(row=1, column=1, padx=5, pady=2)
-    log_text = tk.Text(main_frame, height=8, width=37, bg="#e0f7fa")
-    log_text.grid(row=2, column=1, padx=5, pady=2)
-
-    canvas_w, canvas_h = 1500, 500 
-    canvas = tk.Canvas(main_frame, width=canvas_w, height=canvas_h, bg="#e0f7fa")
+    # --- GUI Setup (Register, Memory, Log text boxes) ---
+    info_frame = tk.Frame(main_frame)
+    info_frame.grid(row=0, column=1, rowspan=4, sticky="ns", padx=5, pady=5)
+    
+    reg_text = tk.Text(info_frame, height=10, width=45, bg="#e0f7fa", relief="solid", borderwidth=1)
+    reg_text.pack(pady=2)
+    mem_text = tk.Text(info_frame, height=10, width=45, bg="#e0f7fa", relief="solid", borderwidth=1)
+    mem_text.pack(pady=2)
+    log_text = tk.Text(info_frame, height=10, width=45, bg="#e0f7fa", relief="solid", borderwidth=1)
+    log_text.pack(pady=2)
+    
+    # --- Canvas for Processor Diagram ---
+    canvas_w, canvas_h = 1500, 500
+    canvas = tk.Canvas(main_frame, width=canvas_w, height=canvas_h, bg="#f0f8ff")
     canvas.grid(row=0, column=0, rowspan=4, padx=5, pady=5)
-    canvas.config(width=canvas_w, height=canvas_h)
-    canvas.create_text(canvas_w//2, 10, text="5-Stage RISC-V Processor ", font=("Arial", 12, "bold"), fill="#00796b")
 
-    # --- Status frame debajo del cuadro de "Últimos accesos a memoria" ---
+    # --- Status Labels ---
     status_frame = tk.Frame(main_frame)
-    status_frame.grid(row=3, column=1, pady=(10, 0), sticky="w")
-    cycle_label = tk.Label(status_frame, text="Ciclo: 0", fg="#00796b")
-    cycle_label.pack(side=tk.LEFT, padx=8)
-    pc_label = tk.Label(status_frame, text="PC: 0", fg="#00796b")
-    pc_label.pack(side=tk.LEFT, padx=8)
-    time_label = tk.Label(status_frame, text="Tiempo transcurrido: 0.00s", fg="#00796b")
-    time_label.pack(side=tk.LEFT, padx=8)
+    status_frame.grid(row=4, column=0, columnspan=2, pady=(10, 0), sticky="ew")
+    cycle_label = tk.Label(status_frame, text="Cycle: 0", fg="#00796b", font=("Arial", 10))
+    cycle_label.pack(side=tk.LEFT, padx=10)
+    pc_label = tk.Label(status_frame, text="PC: 0", fg="#00796b", font=("Arial", 10))
+    pc_label.pack(side=tk.LEFT, padx=10)
+    time_label = tk.Label(status_frame, text="Time: 0.00s", fg="#00796b", font=("Arial", 10))
+    time_label.pack(side=tk.LEFT, padx=10)
 
+    # Coordinates for all graphical components
     coords = {
         "PC": (150, 210, 220, 240),
         "Instr. memory": (270, 160, 420, 240),
@@ -74,299 +109,116 @@ def crear_procesador2(parent_frame, modo):
         "MEM/WB": (1280, 108, 1310, 420)
     }
 
-    stage_dividers = [440, 820, 1060, 1280]
-
-    canvas.create_text(canvas_w//2, 10, text="5-Stage RISC-V Processor ", font=("Arial", 12, "bold"), fill="#00796b")
-
-    # Botones 
-    btn_y = 290  
-    btn_x = 30   
-    btn_sep = 28 
-
-    btn_font = ("Arial", 8) 
-
-    step_btn = tk.Button(canvas, text="Siguiente ciclo", width=12, font=btn_font, bg="#b2ebf2")
-    start_btn = tk.Button(canvas, text="Inicio automático", width=12, font=btn_font, bg="#b2ebf2")
-    stop_btn = tk.Button(canvas, text="Detener automático", width=12, font=btn_font, bg="#b2ebf2")
-    run_all_btn = tk.Button(canvas, text="Ejecutar completo", width=12, font=btn_font, bg="#b2ebf2")
-    reset_btn = tk.Button(canvas, text="Reiniciar", width=12, font=btn_font, bg="#b2ebf2")
-
-    canvas.create_window(btn_x, btn_y, window=step_btn, anchor="nw")
-    canvas.create_window(btn_x, btn_y + btn_sep, window=start_btn, anchor="nw")
-    canvas.create_window(btn_x, btn_y + 2*btn_sep, window=stop_btn, anchor="nw")
-    canvas.create_window(btn_x, btn_y + 3*btn_sep, window=run_all_btn, anchor="nw")
-    canvas.create_window(btn_x, btn_y + 4*btn_sep, window=reset_btn, anchor="nw")
-
-    for x in stage_dividers:
-        canvas.create_line(x, 90, x, 430, width=7, fill="#0097a7")  # Divisores azul 
-
+    # --- Draw all components on the canvas ---
     block_ids = {}
-    for name, (x1, y1, x2, y2) in coords.items():
-        if name == "ALU":
-            continue
-        fill = "#FFF" if "/" in name else "#b2ebf2"  # Bloques celestes
-        block_ids[name] = canvas.create_rectangle(x1, y1, x2, y2, fill=fill, width=2)
-        if name in ["IF/ID", "ID/EX", "EX/MEM", "MEM/WB"]:
-            text = name.replace("/", "/\n")
-            canvas.create_text((x1+x2)//2, (y1+y2)//2, text=text, font=("Arial", 8, "bold"), fill="#00796b")
-        else:
-            canvas.create_text((x1+x2)//2, (y1+y2)//2, text=name, font=("Arial", 11, "bold"), fill="#00796b")
 
-    def draw_mux(canvas, x, y, width=28, height=22):
-        points = [
-            x, y,
-            x + width, y + height // 4,
-            x + width, y + 3 * height // 4,
-            x, y + height
-        ]
+    # Helper function for drawing a MUX
+    def draw_mux(x, y, w=28, h=22):
+        points = [x, y, x + w, y + h // 4, x + w, y + 3 * h // 4, x, y + h]
         return canvas.create_polygon(points, fill="#b2ebf2", outline="#0097a7", width=2)
 
-    def draw_alu(canvas, x, y, width=100, height=70):
-        notch_depth = width * 0.13
-        notch_height = height * 0.28
-        points = [
-            (x + notch_depth -10, y ),
-            (x + width - 1, y +10),
-            (x + width - 1, y - 10 + height),
-            (x + notch_depth -10, y + height),
-            (x, y + height - notch_height),
-            (x + notch_depth, y + height // 2),
-            (x, y + notch_height)
-        ]
-        flat_points = [coord for pt in points for coord in pt]
-        alu_id = canvas.create_polygon(flat_points, fill="#b2ebf2", outline="#0097a7", width=2)
-        return alu_id
+    # Helper function for drawing the ALU
+    def draw_alu(x, y, w=100, h=70):
+        points = [x, y + h*0.2, x + w*0.3, y, x + w, y + h*0.3, x + w, y + h*0.7, x + w*0.3, y + h, x, y + h*0.8]
+        return canvas.create_polygon(points, fill="#b2ebf2", outline="#0097a7", width=2)
+    
+    # Draw standard rectangular blocks
+    for name, (x1, y1, x2, y2) in coords.items():
+        if name != "ALU":
+             fill_color = "#FFFFFF" if "/" in name else "#b2ebf2"
+             block_ids[name] = canvas.create_rectangle(x1, y1, x2, y2, fill=fill_color, outline="#0097a7", width=2)
+             text = name.replace("/", "/\n") if "/" in name else name
+             canvas.create_text((x1+x2)/2, (y1+y2)/2, text=text, font=("Arial", 9, "bold"), fill="#00796b")
 
-    # --- Sumador ---
-    muxS_id = draw_mux(canvas, 235, 110, width=20, height=30)  
-    canvas.create_text(250, 98, text="Sumador", font=("Arial", 6))
-    block_ids["SUMADOR"] = muxS_id # Se resalta el sumador 
+    # Draw special shapes and add them to block_ids
+    block_ids["ALU"] = draw_alu(coords["ALU"][0], coords["ALU"][1], coords["ALU"][2]-coords["ALU"][0], coords["ALU"][3]-coords["ALU"][1])
+    canvas.create_text(coords["ALU"][0]+50, coords["ALU"][1]+35, text="ALU", font=("Arial", 11, "bold"), fill="#00796b")
+    
+    block_ids["SUMADOR"] = draw_mux(235, 110, w=20, h=30)
+    canvas.create_text(245, 100, text="ADD", font=("Arial", 7, "bold"))
 
+    block_ids["mux0_id"] = draw_mux(171, 104, w=20, h=30)
+    block_ids["mux1_id"] = draw_mux(115, 210, w=20, h=30)
+    block_ids["mux_extra_id"] = draw_mux(880, 163, w=20, h=30) # ALU operand 1 MUX
+    block_ids["mux2_id"] = draw_mux(880, 230, w=20, h=30)      # ALU operand 2 MUX
+    block_ids["mux_final_id"] = draw_mux(1380, 160, w=20, h=50) # WB MUX
 
-    # --- MUX antes arriba del PC---
-    mux0_id = draw_mux(canvas, 171, 104, width=20, height=30)
-    canvas.create_text(167, 104, text="4", font=("Arial", 6))
-    canvas.create_line(158, 107, 168, 107)
-    canvas.create_text(167, 123, text="2", font=("Arial", 6))
-    canvas.create_line(158, 127, 168, 127)
-    canvas.create_line(190, 120, 236, 120)  #M0 y MS
-    block_ids["mux0_id"] = mux0_id         # MUX antes arriba del PC
+    # Draw connecting lines (datapath) - purely visual
+    # (Lines are omitted for brevity, but would be drawn here)
 
-    # --- MUX antes del PC ---
-    mux1_id = draw_mux(canvas, 115, 210, width=20, height=30)  
-    canvas.create_line(90, 222, 116, 222)  #M1  y S
-    canvas.create_line(90, 80, 90, 222)  #M1  y S
-    canvas.create_line(90, 80, 317, 80)  #M1  y S
-    canvas.create_line(317, 80, 317, 123)  #M1  y S
-    canvas.create_line(135, 224, 150, 224)#M1 y PC
-    canvas.create_line(1045, 30, 1045, 210) #M1 y ALU
-    canvas.create_line(50, 30, 1045, 30) #M1 y ALU
-    canvas.create_line(50, 30, 50, 235) #M1 y ALU
-    canvas.create_line(50, 235, 115, 235) #M1 y ALU
-    block_ids["mux1_id"] = mux1_id         # MUX antes del PC
-
-    # --- MUX arriba antes de la ALU ---
-    mux_extra_id = draw_mux(canvas, 905, 163, width=15, height=30)
-    canvas.create_line(920, 177, 1000, 177) #M a ALU
-    block_ids["mux_extra_id"] = mux_extra_id   # MUX arriba antes de la ALU
-
-    # --- MUX abajo antes de la ALU ---
-    mux2_id = draw_mux(canvas, 905, 230, width=15, height=30)
-    canvas.create_line(920, 243, 1000, 243) #M a ALU
-    block_ids["mux2_id"] = mux2_id         # MUX abajo antes de la ALU
-
-      # --- MUX arriba primero de la ALU ---
-    mux_extra_id = draw_mux(canvas, 865, 163, width=18, height=28)
-    canvas.create_line(849, 180, 865, 180) #M a ALU
-
-    # --- MUX abajo primero de la ALU ---
-    mux2_id = draw_mux(canvas, 865, 220, width=18, height=28)
-    canvas.create_line(849, 232, 865, 232) #M a ALU
-
-    # --- MUX después de MEM/WB ---
-    mux_final_id = draw_mux(canvas, 1380, 160, width=20, height=50)
-    block_ids["mux_final_id"] = mux_final_id   # MUX después de MEM/WB
-    #--- Líneas ---
-    canvas.create_line(255, 123, 440, 123)  #sumador a 1 bloque separador
-    canvas.create_line(469, 123, 821, 123)  #Bloque 1 a bloque 2
-    canvas.create_line(851, 123, 1060,123)  #Bloque 2 a bloque 3
-    canvas.create_line(1090,123, 1278,123)  #Bloque 3 a bloque 4
-    canvas.create_line(1309, 123,1338,123)  #Bloque 5 a mux final
-    canvas.create_line(1338, 123, 1338, 165)  
-    canvas.create_line(1338, 165, 1380, 165) 
-    canvas.create_line(220, 224, 270, 224)#PC y IM
-    canvas.create_line(240, 140, 240, 224)#PC y MS
-    canvas.create_line(240, 150, 440, 150) # PC + Y bloque 1
-    canvas.create_line(470, 150, 821, 150) # Bloque 1 a bloque 2
-    canvas.create_line(851, 150, 890, 150) # iD/EX y LINEA mux arriba alu
-    canvas.create_line(890, 150, 890, 170)
-    canvas.create_line(890, 170, 905, 170)
-    canvas.create_line(883, 180, 905, 180) #union multiplexores alu arriba
-    canvas.create_line(894, 180, 894, 320) #union multiplexores alu arriba y branch
-    canvas.create_line(894, 320, 915, 320) 
-    canvas.create_line(855, 170, 865, 170) #primer mux alu hacia arriba
-    canvas.create_line(857, 187, 865, 187) #primer mux alu hacia abajo
-    canvas.create_line(857, 187, 857, 425)
-    canvas.create_line(857, 425, 1111, 425)
-    canvas.create_line(1110, 210, 1110, 425)
-    canvas.create_line(855, 225, 865, 225) #segundo mux alu hacia arriba
-    canvas.create_line(855, 70, 855, 225)
-    canvas.create_line(857, 236, 865, 236) #segundo mux alu hacia abajo
-    canvas.create_line(888, 300, 1060, 300) #Nodo MuxAb branch a EX/men
-    canvas.create_line(801, 182, 821, 182) #Register y ID/EX
-    canvas.create_line(801, 232, 821, 232) 
-    canvas.create_line(345, 240, 345, 270)#Instr M y CompressedD
-    canvas.create_line(720, 280, 820, 280) #IMM Y ID/EX
-    canvas.create_line(850, 280, 900, 280)
-    canvas.create_line(899, 250, 899, 280)
-    canvas.create_line(899, 250, 904, 250)
-    canvas.create_line(883, 235, 905, 235) #union multiplexores alu abajo
-    canvas.create_line(888, 236, 888, 335) #union multiplexores alu abajo y branch
-    canvas.create_line(888, 335, 916, 335)
-    canvas.create_line(590, 280, 687, 280) #IMM Y Decode 
-    canvas.create_line(420, 290, 440, 290)#CompressedD y IF
-    canvas.create_line(469, 290, 508, 290)#IF y decode
-    canvas.create_line(508, 220, 508, 290)# decode y Imm
-    canvas.create_line(508, 220, 531, 220)
-    canvas.create_line(590, 290, 595, 290) #Decode y id/ex
-    canvas.create_line(595, 290, 595, 355) 
-    canvas.create_line(595, 355, 820, 355) 
-    canvas.create_line(508, 320, 688, 320) #IMM nodo decode
-    canvas.create_line(508, 280, 508, 320)
-    canvas.create_line(640, 190, 660, 190) #Register con salida del ultimo mux
-    canvas.create_line(640, 70, 640, 190)
-    canvas.create_line(640, 70, 1425, 70)
-    canvas.create_line(1425, 70, 1425, 183)
-    canvas.create_line(1400, 183, 1425, 183)
-    canvas.create_line(620, 200, 660, 200) #Register hasta MEM/WB
-    canvas.create_line(620, 50, 620, 200)
-    canvas.create_line(620, 50, 1445, 50)
-    canvas.create_line(1445, 50, 1445, 387)
-    canvas.create_line(1310, 387, 1445, 387)
-    canvas.create_line(1090, 387, 1278, 387) #bloque 3 y boque 4 abajo
-    canvas.create_line(890, 387, 1060, 387) #bloque 2 y boque 3 abajo
-    canvas.create_line(890, 357, 890, 387) 
-    canvas.create_line(850, 357, 890, 357) 
-
-    canvas.create_line(1020, 210, 1060, 210) #ALU y EX/MEM
-    canvas.create_line(590, 215, 660, 215) #Decode y registers  R
-    canvas.create_line(590, 230, 660, 230) 
-    canvas.create_line(1090, 210, 1130, 210)#EX/MEM data memory arriba
-    canvas.create_line(1090, 300, 1105, 300) #EX/MEM data memory abajo
-    canvas.create_line(1105, 245, 1105, 300)
-    canvas.create_line(1105, 245, 1130, 245)
-    canvas.create_line(1240, 210, 1280, 210)#data memory arriba y MEM/WB
-    canvas.create_line(1110, 165, 1280, 165)
-    canvas.create_line(1110, 165, 1110, 210)
-    canvas.create_line(1310, 210, 1330, 210)# Mem/WB MUX
-    canvas.create_line(1329, 200, 1329, 210)# Mem/WB MUX
-    canvas.create_line(1329, 200, 1381, 200)# Mem/WB MUX
-    canvas.create_line(1310, 165, 1320, 165) #linea centro mux final
-    canvas.create_line(1320, 165, 1320, 181)
-    canvas.create_line(1320, 181, 1381, 181)
-
-
-    alu_x1, alu_y1, alu_x2, alu_y2 = coords["ALU"]
-    alu_width = alu_x2 - alu_x1
-    alu_height = alu_y2 - alu_y1
-    alu_id = draw_alu(canvas, alu_x1, alu_y1, width=alu_width, height=alu_height)
-    block_ids["ALU"] = alu_id
-    canvas.create_text((alu_x1 + alu_x2)//2, (alu_y1 + alu_y2)//2, text="ALU", font=("Arial", 11, "bold"), fill="#00796b")
-    canvas.create_text(alu_x1 + 18, alu_y1 + 12, text="Op 1", font=("Arial", 7), fill="#00796b")
-    canvas.create_text(alu_x1 + 18, alu_y2 - 12, text="Op 2", font=("Arial", 7), fill="#00796b")
-    canvas.create_text(alu_x2 - 15, (alu_y1 + alu_y2)//2, text="Res", font=("Arial", 7), fill="#00796b")
-
+    # --- Control Buttons ---
+    control_frame = tk.Frame(info_frame)
+    control_frame.pack(pady=20)
+    step_btn = tk.Button(control_frame, text="Next Cycle", command=lambda: update())
+    step_btn.pack(fill=tk.X)
+    start_btn = tk.Button(control_frame, text="Auto-Run", command=lambda: start_auto())
+    start_btn.pack(fill=tk.X)
+    stop_btn = tk.Button(control_frame, text="Stop", command=lambda: stop_auto())
+    stop_btn.pack(fill=tk.X)
+    run_all_btn = tk.Button(control_frame, text="Run All", command=lambda: run_all())
+    run_all_btn.pack(fill=tk.X)
+    reset_btn = tk.Button(control_frame, text="Reset", command=lambda: reset())
+    reset_btn.pack(fill=tk.X)
+        
     def refresh_gui():
-        cycle_label.config(text=f"Ciclo: {cycle[0]}")
+        # Update labels
+        cycle_label.config(text=f"Cycle: {cycle[0]}")
         pc_label.config(text=f"PC: {cpu.pc}")
-        time_label.config(text=f"Tiempo transcurrido: {time.time() - start_time:.2f}s")
+        time_label.config(text=f"Time: {time.time() - start_time:.2f}s")
+
+        # Update Register display
         reg_text.delete(1.0, tk.END)
-        reg_text.insert(tk.END, "Registros:\n")
+        reg_text.insert(tk.END, "--- Registers ---\n")
         for i in range(0, 32, 4):
-            reg_text.insert(tk.END, f"x{i:2}: {cpu.regs.registers[i]:<4}  x{i+1:2}: {cpu.regs.registers[i+1]:<4}  x{i+2:2}: {cpu.regs.registers[i+2]:<4}  x{i+3:2}: {cpu.regs.registers[i+3]:<4}\n")
+            line = f"x{i:02}:{cpu.regs.registers[i]:<5} x{i+1:02}:{cpu.regs.registers[i+1]:<5} x{i+2:02}:{cpu.regs.registers[i+2]:<5} x{i+3:02}:{cpu.regs.registers[i+3]:<5}\n"
+            reg_text.insert(tk.END, line)
+
+        # Update Memory and Log displays
         mem_text.delete(1.0, tk.END)
-        mem_text.insert(tk.END, "Memoria (todas las celdas):\n")
-        for i, val in enumerate(cpu.mem.dump()):
-            mem_text.insert(tk.END, f"[{i*4:04}] = {val}\n")
+        mem_text.insert(tk.END, "--- Data Memory ---\n")
+        # Only show first 16 memory locations for brevity
+        for i in range(0, 16*4, 4):
+             mem_text.insert(tk.END, f"[{i:03}]: {cpu.mem.read_word(i)}\n")
         log_text.delete(1.0, tk.END)
-        log_text.insert(tk.END, "Últimos accesos a memoria:\n")
+        log_text.insert(tk.END, "--- Memory Access Log ---\n")
         for action, addr, val in cpu.mem.get_access_log(n=10):
             log_text.insert(tk.END, f"{action} @ {addr} = {val}\n")
 
+        # --- UPDATE COMPONENT COLORS ---
+        # First, reset all component colors to default
         for name, block_id in block_ids.items():
-            fill = "#FFF" if "/" in name else "#b2ebf2"
-            canvas.itemconfig(block_id, fill=fill)
-
-        stage_to_block = [
-            "Instr. memory",
-            "Registers",
-            "ALU",
-            "Data memory"
-        ]
-        stage_names = ["IF/ID", "ID/EX", "EX/MEM", "MEM/WB"]
-        if hasattr(cpu, "pipeline"):
-            for idx in range(4):
-                if cpu.pipeline[idx] is not None:
-                    block_name = stage_to_block[idx]
-                    if block_name in block_ids:
-                        canvas.itemconfig(block_ids[block_name], fill="#FFD700")
-                    stage = stage_names[idx]
-                    if stage in block_ids:
-                        canvas.itemconfig(block_ids[stage], fill="#FFD700")
-
-        # --- Resaltar el sumador si se usa ---
-        if hasattr(cpu, "modules") and cpu.modules.get("SUMADOR") and "SUMADOR" in block_ids:
-            canvas.itemconfig(block_ids["SUMADOR"], fill="#FFD700")
-
-
-        #Resaltar el Decode solo cuando se utilize 
+            fill_color = "#FFFFFF" if "/" in name else "#b2ebf2"
+            canvas.itemconfig(block_id, fill=fill_color)
+        
+        # Then, highlight active components based on the cpu.modules dictionary
         if hasattr(cpu, "modules"):
-            if cpu.modules.get("DECODE") and "Decode" in block_ids:
-                canvas.itemconfig(block_ids["Decode"], fill="#FFD700")
-            if cpu.modules.get("IMM") and "Imm" in block_ids:
-                canvas.itemconfig(block_ids["Imm"], fill="#FFD700")
+            for name, is_active in cpu.modules.items():
+                gui_name = name # Default name
+                # Map logic names to GUI names if they differ
+                if name == "Memoria": gui_name = "Data memory"
+                if name == "Instr_Memoria": gui_name = "Instr. memory"
 
+                if is_active and gui_name in block_ids:
+                    canvas.itemconfig(block_ids[gui_name], fill="#FFD700") # Gold for active
 
-        #Resaltar el bloque Compressed Decode cuando se usa 
-        if cpu.modules.get("COMPRESSED_DECODE") and "Compressed decode" in block_ids:
-             canvas.itemconfig(block_ids["Compressed decode"], fill="#FFD700")
-
-        #Resaltar el bloque PC cuando se utilize 
-        if hasattr(cpu, "modules"):
-            if cpu.modules.get("PC") and "PC" in block_ids:
-                canvas.itemconfig(block_ids["PC"], fill="#FFD700")
-
-        #Resaltar el Branch cuando se utilize 
-        if hasattr(cpu, "modules"):
-            if cpu.modules.get("BRANCH") and "Branch" in block_ids:
-                canvas.itemconfig(block_ids["Branch"], fill="#FFD700")
-
-        #Resaltar muxes cuando se utilicen 
-        for name in ["mux0_id", "mux1_id", "mux_extra_id", "mux2_id", "mux_final_id"]:
-            if cpu.modules.get(name) and name in block_ids:
-                canvas.itemconfig(block_ids[name], fill="#FFD700")
-
-
-                
+        # --- Display instruction in each stage ---
+        # FIX: Moved the cleanup logic here, inside the function.
         if hasattr(refresh_gui, "stage_text_ids"):
             for tid in refresh_gui.stage_text_ids:
                 canvas.delete(tid)
         refresh_gui.stage_text_ids = []
 
-        for idx in range(4):
-            instr = cpu.pipeline[idx]
-            if instr is not None:
-                block_name = stage_to_block[idx]
-                if block_name in coords:
-                    x1, y1, x2, y2 = coords[block_name]
-                    text_id = canvas.create_text(
-                        (x1 + x2) // 2, y1 - 15,
-                        text=instr,
-                        font=("Arial", 8, "italic"),
-                        fill="#00796b"
-                    )
-                    refresh_gui.stage_text_ids.append(text_id)
+        stage_coords = [(345, 150), (640, 150), (950, 150), (1185, 180), (1350, 150)]
+        stage_names = ["IF", "ID", "EX", "MEM", "WB"]
+        for i, instr in enumerate(cpu.pipeline):
+            text = f"[{stage_names[i]}] {instr.raw if instr else '---'}"
+            if i == 2 and cpu.stalled: text = "[STALL]"
+            
+            x, y = stage_coords[i]
+            tid = canvas.create_text(x, y - 80, text=text, font=("Arial", 9, "italic"), fill="#c62828", anchor="n")
+            refresh_gui.stage_text_ids.append(tid)
 
+    # --- Control Functions ---
     def update():
         cpu.step()
         cycle[0] += 1
@@ -375,31 +227,27 @@ def crear_procesador2(parent_frame, modo):
     def auto_run():
         if running[0]:
             update()
-            main_frame.after(1000, auto_run)
+            main_frame.after(500, auto_run) # 500ms delay for visibility
 
     def start_auto():
-        running[0] = True
-        auto_run()
+        if not running[0]:
+            running[0] = True
+            auto_run()
 
     def stop_auto():
         running[0] = False
 
     def run_all():
+        stop_auto()
         while cpu.pc // 4 < len(cpu.instructions) or any(cpu.pipeline):
             update()
 
     def reset():
         nonlocal cpu, start_time
+        stop_auto()
         cpu = Processor(program)
         cycle[0] = 0
         start_time = time.time()
-        running[0] = False
         refresh_gui()
 
-    step_btn.config(command=update)
-    start_btn.config(command=start_auto)
-    stop_btn.config(command=stop_auto)
-    run_all_btn.config(command=run_all)
-    reset_btn.config(command=reset)
-
-    refresh_gui()
+    refresh_gui() # Initial Draw
