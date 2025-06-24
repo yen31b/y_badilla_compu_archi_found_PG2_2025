@@ -11,8 +11,8 @@ class Processor:
         self.instructions = [Instruction(line) for line in instructions]
         self.regs = RegisterFile()
         self.mem = RAM(1024)
-        self.alu = ALU()  # instancia de la ALU
-        self.pipeline = [None] * 5  # IF, ID, EX, MEM, WB
+        self.alu = ALU()
+        self.pipeline = [None] * 5
         self.modules = {
             "ALU": False,
             "Memoria": False,
@@ -31,8 +31,6 @@ class Processor:
             "mux_final_id": False
         }
 
-
-
         self.jump_taken = False
         self.mux = MUX()
         self.sumador = Sumador()
@@ -47,10 +45,26 @@ class Processor:
         else:
             fetched_instr = None
 
-
         if fetched_instr:
             self.modules["COMPRESSED_DECODE"] = True
 
+        # Asignar latencia realista cuando la instrucción entra a EX
+        if self.pipeline[1] and not hasattr(self.pipeline[1], 'remaining_cycles'):
+            op = self.pipeline[1].opcode
+            if op in ('add', 'addi'):
+                self.pipeline[1].remaining_cycles = 1
+            elif op in ('sub', 'and', 'or', 'xor'):
+                self.pipeline[1].remaining_cycles = 2
+            elif op in ('slt', 'sltu'):
+                self.pipeline[1].remaining_cycles = 2
+            elif op in ('lw', 'sw'):
+                self.pipeline[1].remaining_cycles = 3
+            elif op in ('beq', 'bne', 'jal'):
+                self.pipeline[1].remaining_cycles = 1
+            else:
+                self.pipeline[1].remaining_cycles = 1  # valor por defecto
+
+        # Avanzar el pipeline
         self.pipeline[4] = self.pipeline[3]
         self.pipeline[3] = self.pipeline[2]
         self.pipeline[2] = self.pipeline[1]
@@ -76,7 +90,10 @@ class Processor:
 
         # EX
         instr = self.pipeline[2]
-        if instr:
+        if instr and instr.remaining_cycles > 1:
+            instr.remaining_cycles -= 1
+            return
+        elif instr:
             if instr.opcode == 'add':
                 a = self.regs.read(instr.rs1)
                 b = self.regs.read(instr.rs2)
@@ -84,11 +101,10 @@ class Processor:
                 self.modules["ALU"] = True
             elif instr.opcode == 'addi':
                 a = self.regs.read(instr.rs1)
-                b = self.mux.select(1, self.regs.read('x0'), int(instr.imm))  # mux ficticio: ignora 'x0', devuelve imm
+                b = self.mux.select(1, self.regs.read('x0'), int(instr.imm))
                 instr.result = self.alu.operacion_alu('ADD', a, b)
                 self.modules["ALU"] = True
-                self.modules["mux2_id"] = True  # mux de entrada 2 (inmediato)
-
+                self.modules["mux2_id"] = True
             elif instr.opcode in ('sub', 'and', 'or', 'xor', 'slt', 'sltu'):
                 a = self.regs.read(instr.rs1)
                 b = self.regs.read(instr.rs2)
@@ -99,7 +115,6 @@ class Processor:
                 if instr.opcode == 'sw':
                     instr.value = self.regs.read(instr.rs2)
                 self.modules["ALU"] = True
-                
             elif instr.opcode in ('beq', 'bne'):
                 val1 = self.regs.read(instr.rs1)
                 val2 = self.regs.read(instr.rs2)
@@ -108,7 +123,7 @@ class Processor:
                 if condition:
                     self.pc += offset - 4
                     self.jump_taken = True
-                self.modules["BRANCH"] = True 
+                self.modules["BRANCH"] = True
                 self.modules["mux1_id"] = True
             elif instr.opcode == 'jal':
                 self.regs.write(instr.rd, self.pc)
@@ -116,9 +131,8 @@ class Processor:
                 self.jump_taken = True
                 self.modules["mux1_id"] = True
 
+        # ID
         instr = self.pipeline[1]
-        # No hazard handling
-
         if instr:
             self.modules["DECODE"] = True
             if instr.imm is not None:
@@ -128,6 +142,5 @@ class Processor:
             self.pc = self.sumador.sumar(self.pc, 4)
             self.modules["SUMADOR"] = True
             self.modules["mux0_id"] = True
-
 
         self.pipeline[0] = fetched_instr

@@ -8,6 +8,7 @@ class Instruction:
         self.rs2 = None
         self.imm = None
         self.type = None  
+        self.remaining_cycles = 1
         self.parse()
 
     def parse(self):

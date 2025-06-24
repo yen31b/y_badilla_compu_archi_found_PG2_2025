@@ -294,7 +294,6 @@ def crear_procesador1(parent_frame, modo):
             log_text.insert(tk.END, f"{action} @ {addr} = {val}\n")
 
 
-
         if hasattr(cpu, "branch_history"):
             log_text.insert(tk.END, "\nHistorial de predicciones:\n")
             for addr, status in cpu.branch_history[-5:]:
@@ -374,6 +373,12 @@ def crear_procesador1(parent_frame, modo):
                         fill="blue"
                     )
                     refresh_gui.stage_text_ids.append(text_id)
+        # --- Mostrar latencia restante en EX ---
+        if hasattr(cpu, "pipeline") and cpu.pipeline[2] is not None:
+            instr_ex = cpu.pipeline[2]
+            if hasattr(instr_ex, "remaining_cycles"):
+                log_text.insert(tk.END, f"\nInstrucción en EX: {instr_ex.raw}\n")
+                log_text.insert(tk.END, f"Latencia restante: {instr_ex.remaining_cycles}\n")
 
     # --- Controladores ---
     def update():
